@@ -15,7 +15,7 @@ Most standard health apps act as simple reminder alarms. They fail to track the 
 
 ### Data Model (Planned)
 
-'''text
+```text
 Medication
   id: string
   name: string
@@ -38,7 +38,7 @@ InventoryEvent
   type: "refill" | "decrement" | "adjustment"
   quantity: number
   timestamp: datetime
-'''
+```
 
 ## Tech Stack (Planned)
 - **Frontend:** React/React Native (TypeScript)
