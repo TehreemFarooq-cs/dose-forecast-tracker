@@ -1,4 +1,4 @@
-# DoseForecast Tracker - Project Guidelines & Rules
+# DoseForecast Tracker 💊 - Project Guidelines & Rules
 
 ## Tech Stack
 - Frontend: React / React Native (TypeScript)
