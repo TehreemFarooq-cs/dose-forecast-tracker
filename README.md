@@ -1,5 +1,9 @@
 # DoseForecast Tracker 💊
-A modern, high-fidelity full-stack tracking application designed to solve the critical logistical challenges faced by chronic patients managing multiple multi-dose medications.
+A tracking application for chronic-medication inventory management — forecasts refill shortages from dosage schedule and consumption logs, instead of relying on simple reminder alarms.
+
+## Status
+
+🚧 Early architecture/planning stage.
 
 ## The Core Problem
 Most standard health apps act as simple reminder alarms. They fail to track the underlying inventory lifecycle of a patient's prescription, leaving users vulnerable to sudden, unexpected stock shortages of critical medications.
@@ -8,6 +12,33 @@ Most standard health apps act as simple reminder alarms. They fail to track the 
 - **Predictive Refill Forecasting:** A deterministic inventory engine that calculates real-time depletion rates and flags an explicit "Critical Shortage Warning" 5 days before a stock runs empty.
 - **State-Driven Adherence Logging:** A clean, atomic transaction log ensuring medication consumption matches real-time inventory updates.
 - **Modern UI/UX:** A minimalist, premium dashboard built to maximize readability and ease of use for everyday patients.
+
+### Data Model (Planned)
+
+'''text
+Medication
+  id: string
+  name: string
+  dosePerTake: number
+  unit: string            // e.g. "mg", "tablet"
+  frequencyPerDay: number
+  currentStock: number
+  lowStockThresholdDays: number   // default 5
+
+DoseLog
+  id: string
+  medicationId: string    // -> Medication.id
+  timestamp: datetime
+  doseTaken: number
+  source: "manual" | "scheduled"
+
+InventoryEvent
+  id: string
+  medicationId: string    // -> Medication.id
+  type: "refill" | "decrement" | "adjustment"
+  quantity: number
+  timestamp: datetime
+'''
 
 ## Tech Stack (Planned)
 - **Frontend:** React/React Native (TypeScript)
