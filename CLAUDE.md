@@ -3,10 +3,11 @@
 ## Tech Stack
 - Frontend: React / React Native (TypeScript)
 - Backend: Firebase Firestore & Cloud Functions
-- Styling: Tailwind CSS / Styled Components
+- Styling: Tailwind CSS
 
-## Coding Conventions
-- Strictly enforce TypeScript types (no `any`).
-- Use functional components and custom hooks for state/data-fetching.
-- All inventory calculation engines must remain deterministic and pure.
-- Follow Conventional Commits format for Git history.
+## Code Conventions
+- Strictly enforce TypeScript types—never use `any`.
+- Write functional components and custom hooks for state and data-fetching logic.
+- Keep all inventory calculation engines deterministic and pure (zero side effects).
+- Enforce Conventional Commits (`feat:`, `fix:`, `docs:`, `chore:`) for all commit messages.
+- Structure Firebase security rules alongside feature data schemas.
