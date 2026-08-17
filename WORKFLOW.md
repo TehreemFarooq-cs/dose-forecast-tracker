@@ -5,7 +5,7 @@ This report evaluates the code quality, edge-case handling, accessibility, and d
 
 ---
 
-## Key Diffs & Comparative Analysis
+## Key Differences & Comparative Analysis
 
 ### 1. Correctness & Type Safety
 * **`feature-vague`:** Generated a basic form shell with minimal validation. State management stored numeric field values as raw strings (`currentInventory: '0'`), leading to loose equality checks and potential string concatenation bugs during numeric boundary evaluation.
