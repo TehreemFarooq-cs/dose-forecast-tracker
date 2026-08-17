@@ -43,3 +43,7 @@ InventoryEvent
 ## Tech Stack (Planned)
 - **Frontend:** React/React Native (TypeScript)
 - **Backend/Database:** Firebase Firestore & Cloud Functions
+
+## feature-precise Artifacts
+* **Comparison Report:** See [`WORKFLOW.md`](./WORKFLOW.md) for prompt iteration diffs and AI mistake analysis.
+* **Project Rules:** Updated in [`CLAUDE.md`](./CLAUDE.md).
