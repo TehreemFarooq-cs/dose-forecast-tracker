@@ -1,0 +1,260 @@
+.refill-form {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 32px;
+  max-width: 800px;
+  margin: 24px auto;
+  text-align: left;
+  box-shadow: var(--shadow);
+}
+
+.form-header {
+  margin-bottom: 32px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 16px;
+}
+
+.form-header h2 {
+  margin: 0 0 8px 0;
+  font-size: 28px;
+}
+
+.form-header p {
+  color: var(--text);
+  font-size: 16px;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 32px;
+}
+
+.form-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.form-section h3 {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-h);
+  margin: 0;
+  padding-bottom: 8px;
+  border-bottom: 1px dashed var(--border);
+}
+
+.full-width {
+  grid-column: span 2;
+}
+
+.field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.field-group.col-3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 16px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.field label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-h);
+}
+
+.field input,
+.field select {
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-h);
+  font-family: var(--sans);
+  font-size: 16px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.field input:focus,
+.field select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-bg);
+}
+
+.field input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: var(--code-bg);
+}
+
+.hint {
+  font-size: 12px;
+  color: var(--text);
+  margin-top: -4px;
+}
+
+/* Checkbox / Switch Toggle */
+.field.checkbox {
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+}
+
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 48px;
+  height: 24px;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: var(--border);
+  transition: 0.4s;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: 0.4s;
+}
+
+input:checked + .slider {
+  background-color: var(--accent);
+}
+
+input:focus + .slider {
+  box-shadow: 0 0 1px var(--accent);
+}
+
+input:checked + .slider:before {
+  transform: translateX(24px);
+}
+
+.slider.round {
+  border-radius: 24px;
+}
+
+.slider.round:before {
+  border-radius: 50%;
+}
+
+.label-text {
+  font-size: 16px;
+  color: var(--text-h);
+}
+
+/* Input with addon */
+.input-with-addon {
+  display: flex;
+  align-items: center;
+}
+
+.input-with-addon input {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+  flex-grow: 1;
+}
+
+.input-with-addon .addon {
+  padding: 10px 12px;
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-left: none;
+  border-top-right-radius: 8px;
+  border-bottom-right-radius: 8px;
+  font-size: 14px;
+  color: var(--text);
+}
+
+/* Actions */
+.form-actions {
+  margin-top: 40px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+}
+
+.btn-primary,
+.btn-secondary {
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: white;
+  border: none;
+}
+
+.btn-primary:hover {
+  filter: brightness(1.1);
+  box-shadow: var(--shadow);
+}
+
+.btn-secondary {
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+.btn-secondary:hover {
+  background: var(--social-bg);
+  border-color: var(--accent-border);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .refill-form {
+    padding: 20px;
+    margin: 12px;
+  }
+
+  .form-grid {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+
+  .full-width {
+    grid-column: span 1;
+  }
+
+  .field-group.col-3 {
+    grid-template-columns: 1fr;
+  }
+}

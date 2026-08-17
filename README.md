@@ -1,45 +1,75 @@
-# DoseForecast Tracker 💊
-A tracking application for chronic-medication inventory management — forecasts refill shortages from dosage schedule and consumption logs, instead of relying on simple reminder alarms.
+# React + TypeScript + Vite
 
-## Status
+This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
-🚧 Early architecture/planning stage.
+Currently, two official plugins are available:
 
-## The Core Problem
-Most standard health apps act as simple reminder alarms. They fail to track the underlying inventory lifecycle of a patient's prescription, leaving users vulnerable to sudden, unexpected stock shortages of critical medications.
+- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
+- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
 
-## Key Architecture Goals
-- **Predictive Refill Forecasting:** A deterministic inventory engine that calculates real-time depletion rates and flags an explicit "Critical Shortage Warning" 5 days before a stock runs empty.
-- **State-Driven Adherence Logging:** A clean, atomic transaction log ensuring medication consumption matches real-time inventory updates.
-- **Modern UI/UX:** A minimalist, premium dashboard built to maximize readability and ease of use for everyday patients.
+## React Compiler
 
-### Data Model (Planned)
+The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
 
-```text
-Medication
-  id: string
-  name: string
-  dosePerTake: number
-  unit: string            // e.g. "mg", "tablet"
-  frequencyPerDay: number
-  currentStock: number
-  lowStockThresholdDays: number   // default 5
+## Expanding the ESLint configuration
 
-DoseLog
-  id: string
-  medicationId: string    // -> Medication.id
-  timestamp: datetime
-  doseTaken: number
-  source: "manual" | "scheduled"
+If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
 
-InventoryEvent
-  id: string
-  medicationId: string    // -> Medication.id
-  type: "refill" | "decrement" | "adjustment"
-  quantity: number
-  timestamp: datetime
+```js
+export default defineConfig([
+  globalIgnores(['dist']),
+  {
+    files: ['**/*.{ts,tsx}'],
+    extends: [
+      // Other configs...
+
+      // Remove tseslint.configs.recommended and replace with this
+      tseslint.configs.recommendedTypeChecked,
+      // Alternatively, use this for stricter rules
+      tseslint.configs.strictTypeChecked,
+      // Optionally, add this for stylistic rules
+      tseslint.configs.stylisticTypeChecked,
+
+      // Other configs...
+    ],
+    languageOptions: {
+      parserOptions: {
+        project: ['./tsconfig.node.json', './tsconfig.app.json'],
+        tsconfigRootDir: import.meta.dirname,
+      },
+      // other options...
+    },
+  },
+])
+
 ```
 
-## Tech Stack (Planned)
-- **Frontend:** React/React Native (TypeScript)
-- **Backend/Database:** Firebase Firestore & Cloud Functions
+You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+
+```js
+// eslint.config.js
+import reactX from 'eslint-plugin-react-x'
+import reactDom from 'eslint-plugin-react-dom'
+
+export default defineConfig([
+  globalIgnores(['dist']),
+  {
+    files: ['**/*.{ts,tsx}'],
+    extends: [
+      // Other configs...
+      // Enable lint rules for React
+      reactX.configs['recommended-typescript'],
+      // Enable lint rules for React DOM
+      reactDom.configs.recommended,
+    ],
+    languageOptions: {
+      parserOptions: {
+        project: ['./tsconfig.node.json', './tsconfig.app.json'],
+        tsconfigRootDir: import.meta.dirname,
+      },
+      // other options...
+    },
+  },
+])
+
+```
