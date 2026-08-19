@@ -41,5 +41,5 @@ InventoryEvent
 ```
 
 ## Tech Stack (Planned)
-- **Frontend:** React/React Native (TypeScript)
+- **Frontend:** Next.js (App Router), TypeScript, Tailwind CSS
 - **Backend/Database:** Firebase Firestore & Cloud Functions
