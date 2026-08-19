@@ -1,7 +1,7 @@
 # DoseForecast Tracker 💊 - Project Guidelines & Rules
 
 ## Tech Stack
-- Frontend: React / React Native (TypeScript)
+- Frontend: Next.js (App Router), TypeScript
 - Backend: Firebase Firestore & Cloud Functions
 - Styling: Tailwind CSS
 
