@@ -1,45 +1,14 @@
-# DoseForecast Tracker 💊
-A tracking application for chronic-medication inventory management — forecasts refill shortages from dosage schedule and consumption logs, instead of relying on simple reminder alarms.
+# Accessibility Playground
 
-## Status
+This branch introduces an accessibility playground designed to evaluate native, custom component implementations against W3C ARIA standards and component library primitives.
 
-🚧 Early architecture/planning stage.
+## Structure
+* `playground/components/Modal.tsx` — Custom accessible modal dialog.
+* `playground/components/Tabs.tsx` — Custom accessible tab list with roving tabindex.
+* `playground/components/Disclosure.tsx` — Custom accessible disclosure toggle.
+* `playground/NOTES.md` — Architectural analysis comparing custom implementations against headless UI primitives (Radix/shadcn).
 
-## The Core Problem
-Most standard health apps act as simple reminder alarms. They fail to track the underlying inventory lifecycle of a patient's prescription, leaving users vulnerable to sudden, unexpected stock shortages of critical medications.
-
-## Key Architecture Goals
-- **Predictive Refill Forecasting:** A deterministic inventory engine that calculates real-time depletion rates and flags an explicit "Critical Shortage Warning" 5 days before a stock runs empty.
-- **State-Driven Adherence Logging:** A clean, atomic transaction log ensuring medication consumption matches real-time inventory updates.
-- **Modern UI/UX:** A minimalist, premium dashboard built to maximize readability and ease of use for everyday patients.
-
-### Data Model (Planned)
-
-```text
-Medication
-  id: string
-  name: string
-  dosePerTake: number
-  unit: string            // e.g. "mg", "tablet"
-  frequencyPerDay: number
-  currentStock: number
-  lowStockThresholdDays: number   // default 5
-
-DoseLog
-  id: string
-  medicationId: string    // -> Medication.id
-  timestamp: datetime
-  doseTaken: number
-  source: "manual" | "scheduled"
-
-InventoryEvent
-  id: string
-  medicationId: string    // -> Medication.id
-  type: "refill" | "decrement" | "adjustment"
-  quantity: number
-  timestamp: datetime
-```
-
-## Tech Stack (Planned)
-- **Frontend:** Next.js (App Router), TypeScript, Tailwind CSS
-- **Backend/Database:** Firebase Firestore & Cloud Functions
+## Features & Compliance
+* Built from scratch in **React + TypeScript** with **no external component libraries**.
+* Strictly follows **W3C ARIA Authoring Practices Guide (APAG)** patterns for roles, states, and keyboard navigation.
+* Tested for keyboard-only interaction (focus trapping, escape handling, arrow-key navigation).
