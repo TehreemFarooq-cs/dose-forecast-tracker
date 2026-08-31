@@ -7,6 +7,7 @@ Keep answers concise, helpful, and focused on patient clarity.
 
 export const AI_MODEL_CONFIG = {
   // Using a fast, reliable model configuration suitable for streaming chat
+  model: 'gemini-3.5-flash',
   temperature: 0.7,
   maxTokens: 1000,
 };
