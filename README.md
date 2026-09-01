@@ -1,45 +1,50 @@
-# DoseForecast Tracker 💊
-A tracking application for chronic-medication inventory management — forecasts refill shortages from dosage schedule and consumption logs, instead of relying on simple reminder alarms.
+# Dose Forecast Assistant 💊
+A streaming AI chat interface built for the "Streaming AI Chat Interface" capstone assignment - the core AI interaction for the Dose Forecast Tracker app.
 
-## Status
+## Stack
 
-🚧 Early architecture/planning stage.
+- **Next.js** (App Router) + TypeScript
+- **Tailwind CSS**
+- **Vercel AI SDK** (`ai`, `@ai-sdk/react`, `@ai-sdk/google`)
+- **Google Gemini** (`gemini-3.6-flash`) via Google AI Studio
+- **Streamdown** for streaming-safe markdown rendering
 
-## The Core Problem
-Most standard health apps act as simple reminder alarms. They fail to track the underlying inventory lifecycle of a patient's prescription, leaving users vulnerable to sudden, unexpected stock shortages of critical medications.
+## Features
 
-## Key Architecture Goals
-- **Predictive Refill Forecasting:** A deterministic inventory engine that calculates real-time depletion rates and flags an explicit "Critical Shortage Warning" 5 days before a stock runs empty.
-- **State-Driven Adherence Logging:** A clean, atomic transaction log ensuring medication consumption matches real-time inventory updates.
-- **Modern UI/UX:** A minimalist, premium dashboard built to maximize readability and ease of use for everyday patients.
+- Token-by-token streaming responses
+- Stop button — cancels generation mid-stream without breaking chat state
+- Scroll-aware auto-scroll: pins to bottom while the user is at the bottom, releases on manual scroll up, with a "Jump to latest" affordance
+- Thinking indicator before the first token
+- Conversation persisted to `localStorage`, survives page refresh
+- "Clear conversation" control
+- Mobile-friendly layout (`h-dvh`, responsive input)
 
-### Data Model (Planned)
+## Getting started
 
-```text
-Medication
-  id: string
-  name: string
-  dosePerTake: number
-  unit: string            // e.g. "mg", "tablet"
-  frequencyPerDay: number
-  currentStock: number
-  lowStockThresholdDays: number   // default 5
+\`\`\`bash
+npm install
+\`\`\`
 
-DoseLog
-  id: string
-  medicationId: string    // -> Medication.id
-  timestamp: datetime
-  doseTaken: number
-  source: "manual" | "scheduled"
+Create `.env.local` in the project root:
 
-InventoryEvent
-  id: string
-  medicationId: string    // -> Medication.id
-  type: "refill" | "decrement" | "adjustment"
-  quantity: number
-  timestamp: datetime
-```
+\`\`\`
+GOOGLE_GENERATIVE_AI_API_KEY=your_key_here
+\`\`\`
 
-## Tech Stack (Planned)
-- **Frontend:** Next.js (App Router), TypeScript, Tailwind CSS
-- **Backend/Database:** Firebase Firestore & Cloud Functions
+Get a key from [Google AI Studio](https://aistudio.google.com/apikey).
+
+\`\`\`bash
+npm run dev
+\`\`\`
+
+Open [http://localhost:3000](http://localhost:3000).
+
+## Project structure
+
+- `app/api/chat/route.ts` — server route handler, calls Gemini via `streamText`, returns a UI message stream
+- `components/ChatInterface.tsx` — client chat component using `useChat`
+- `config/ai.ts` — system prompt and model config in one module
+
+## Known limitations
+
+- If the page is refreshed while a response is actively streaming, that partial message is not recovered (no server-side stream resumption — persistence is client-only via `localStorage`).
