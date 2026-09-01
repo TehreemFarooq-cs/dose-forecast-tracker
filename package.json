@@ -2,10 +2,14 @@
   "dependencies": {
     "@ai-sdk/google": "^4.0.58",
     "@ai-sdk/react": "^4.0.88",
+    "@tailwindcss/postcss": "^4.3.3",
     "ai": "^7.0.85",
     "next": "^16.3.4",
+    "postcss": "^8.5.26",
     "react": "^19.2.8",
-    "react-dom": "^19.2.8"
+    "react-dom": "^19.2.8",
+    "streamdown": "^2.6.0",
+    "tailwindcss": "^4.3.3"
   },
   "devDependencies": {
     "@types/node": "26.4.0",
