@@ -4,12 +4,39 @@ import { useChat } from '@ai-sdk/react';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Streamdown } from 'streamdown';
 
+const STORAGE_KEY = 'dose-forecast-chat';
+
 export default function ChatInterface() {
-  const { messages, sendMessage, status, stop } = useChat();
+  const { messages, sendMessage, status, stop, setMessages } = useChat();
   const [input, setInput] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
   const isPinnedRef = useRef(true);
   const [showJumpToLatest, setShowJumpToLatest] = useState(false);
+  const [hasLoaded, setHasLoaded] = useState(false);
+
+  // Load saved conversation once, after mount (browser-only, avoids hydration mismatch)
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        setMessages(JSON.parse(raw));
+      }
+    } catch {
+      // corrupted data — ignore, start fresh
+    }
+    setHasLoaded(true);
+  }, [setMessages]);
+
+  // Persist whenever messages change — but only after the initial load has completed
+  useEffect(() => {
+    if (!hasLoaded) return;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
+  }, [messages, hasLoaded]);
+
+  const clearConversation = () => {
+    setMessages([]);
+    localStorage.removeItem(STORAGE_KEY);
+  };
 
   const isNearBottom = (el: HTMLDivElement) =>
     el.scrollHeight - el.scrollTop - el.clientHeight < 48;
@@ -44,33 +71,40 @@ export default function ChatInterface() {
     setInput('');
     isPinnedRef.current = true;
   };
-  
+
   return (
     <div className="flex flex-col h-full max-w-2xl mx-auto p-4 relative">
+      <button
+        onClick={clearConversation}
+        className="text-xs text-gray-500 hover:text-gray-700 underline mb-2 self-start"
+      >
+        Clear conversation
+      </button>
+
       <div
         ref={scrollRef}
         onScroll={handleScroll}
         className="flex-1 overflow-y-auto space-y-4 mb-4 min-h-0"
       >
         {messages.map((m) => (
-  <div
-    key={m.id}
-    className={`p-3 rounded-lg ${
-      m.role === 'user'
-        ? 'bg-blue-600 text-white ml-auto max-w-[80%]'
-        : 'bg-gray-200 text-gray-800 mr-auto max-w-[80%]'
-    }`}
-  >
-    <p className="text-xs font-bold mb-1">{m.role === 'user' ? 'You' : 'AI'}</p>
-    {m.parts.map((part, i) =>
-      part.type === 'text' ? (
-        <Streamdown key={i} isAnimating={status === 'streaming'} className="text-sm">
-          {part.text}
-        </Streamdown>
-      ) : null
-    )}
-  </div>
-))}
+          <div
+            key={m.id}
+            className={`p-3 rounded-lg ${
+              m.role === 'user'
+                ? 'bg-blue-600 text-white ml-auto max-w-[80%]'
+                : 'bg-gray-200 text-gray-800 mr-auto max-w-[80%]'
+            }`}
+          >
+            <p className="text-xs font-bold mb-1">{m.role === 'user' ? 'You' : 'AI'}</p>
+            {m.parts.map((part, i) =>
+              part.type === 'text' ? (
+                <Streamdown key={i} isAnimating={status === 'streaming'} className="text-sm">
+                  {part.text}
+                </Streamdown>
+              ) : null
+            )}
+          </div>
+        ))}
 
         {status === 'submitted' && (
           <div className="bg-gray-200 text-gray-800 p-3 rounded-lg mr-auto max-w-[80%] text-sm animate-pulse">
@@ -87,7 +121,7 @@ export default function ChatInterface() {
           Jump to latest ↓
         </button>
       )}
-      
+
       <form onSubmit={handleSend} className="flex gap-2">
         <input
           type="text"
