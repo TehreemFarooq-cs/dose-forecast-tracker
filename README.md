@@ -47,4 +47,4 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ## Known limitations
 
-- If the page is refreshed while a response is actively streaming, that partial message is not recovered (no server-side stream resumption — persistence is client-only via `localStorage`).
+- If the page is refreshed while a response is actively streaming, that partial message is not recovered (no server-side stream resumption - persistence is client-only via `localStorage`).
