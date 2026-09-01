@@ -13,6 +13,7 @@ export async function POST(req: Request) {
       system: DOSE_FORECAST_SYSTEM_PROMPT,
       messages: await convertToModelMessages(messages),
       temperature: AI_MODEL_CONFIG.temperature,
+      maxOutputTokens: AI_MODEL_CONFIG.maxOutputTokens, 
     });
 
     return result.toUIMessageStreamResponse();
