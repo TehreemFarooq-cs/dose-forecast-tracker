@@ -1,13 +1,15 @@
 'use client';
 
+import RefillForecastCard from './RefillForecastCard';
 import { useChat } from '@ai-sdk/react';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Streamdown } from 'streamdown';
+import type { MyUIMessage } from '@/lib/chat-types';
 
 const STORAGE_KEY = 'dose-forecast-chat';
 
 export default function ChatInterface() {
-  const { messages, sendMessage, status, stop, setMessages } = useChat();
+  const { messages, sendMessage, status, stop, setMessages } = useChat<MyUIMessage>();
   const [input, setInput] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
   const isPinnedRef = useRef(true);
@@ -96,14 +98,53 @@ export default function ChatInterface() {
             }`}
           >
             <p className="text-xs font-bold mb-1">{m.role === 'user' ? 'You' : 'AI'}</p>
-            {m.parts.map((part, i) =>
-              part.type === 'text' ? (
-                <Streamdown key={i} isAnimating={status === 'streaming'} className="text-sm">
-                  {part.text}
-                </Streamdown>
-              ) : null
-            )}
+            {m.parts.map((part, i) => {
+  if (part.type === 'text') {
+    return (
+      <Streamdown key={i} isAnimating={status === 'streaming'} className="text-sm">
+        {part.text}
+      </Streamdown>
+    );
+  }
+
+  if (part.type === 'tool-getRefillForecast') {
+    switch (part.state) {
+      case 'input-streaming':
+        return (
+          <div key={i} className="text-xs text-gray-500 italic my-2 animate-pulse">
+            Reading dosage details…
           </div>
+        );
+
+      case 'input-available':
+        return (
+          <div key={i} className="text-xs text-gray-500 italic my-2 animate-pulse">
+            Calculating refill forecast for {part.input?.drugName ?? '…'}…
+          </div>
+        );
+
+      case 'output-available':
+        return <RefillForecastCard key={i} result={part.output} />;
+
+      case 'output-error':
+        return (
+          <div
+            key={i}
+            className="rounded-lg border-2 border-red-300 bg-red-50 p-3 my-2 text-sm text-red-800"
+          >
+            <p className="font-semibold mb-1">Couldn't calculate a forecast</p>
+            <p>{part.errorText}</p>
+          </div>
+        );
+
+      default:
+        return null;
+    }
+  }
+
+  return null;
+})}
+        </div>
         ))}
 
         {status === 'submitted' && (
