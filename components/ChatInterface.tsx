@@ -7,16 +7,59 @@ import { Streamdown } from 'streamdown';
 import type { MyUIMessage } from '@/lib/chat-types';
 
 const STORAGE_KEY = 'dose-forecast-chat';
+const STALL_TIMEOUT_MS = 30000; // no new content for 30s while active = treat as failed
 
 export default function ChatInterface() {
-  const { messages, sendMessage, status, stop, setMessages } = useChat<MyUIMessage>();
+  const [streamIssue, setStreamIssue] = useState(false);
+
+  const { messages, sendMessage, status, stop, setMessages, error, regenerate } =
+    useChat<MyUIMessage>({
+      onFinish: ({ isDisconnect }) => {
+        if (isDisconnect) {
+          setStreamIssue(true);
+        }
+      },
+    });
+
   const [input, setInput] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
   const isPinnedRef = useRef(true);
   const [showJumpToLatest, setShowJumpToLatest] = useState(false);
   const [hasLoaded, setHasLoaded] = useState(false);
+  const [isRetrying, setIsRetrying] = useState(false);
+  const lastUpdateRef = useRef(Date.now());
 
-  // Load saved conversation once, after mount (browser-only, avoids hydration mismatch)
+  useEffect(() => {
+    if (status !== 'submitted' && status !== 'streaming') {
+      setIsRetrying(false);
+    }
+  }, [status]);
+
+  useEffect(() => {
+    lastUpdateRef.current = Date.now();
+  }, [messages]);
+
+  useEffect(() => {
+    if (status !== 'streaming' && status !== 'submitted') return;
+
+    const interval = setInterval(() => {
+      if (Date.now() - lastUpdateRef.current > STALL_TIMEOUT_MS) {
+        stop();
+        setStreamIssue(true);
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [status, stop]);
+
+  const handleRetry = () => {
+    if (isRetrying) return;
+    setIsRetrying(true);
+    setStreamIssue(false);
+    lastUpdateRef.current = Date.now();
+    regenerate();
+  };
+
   useEffect(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
@@ -29,7 +72,6 @@ export default function ChatInterface() {
     setHasLoaded(true);
   }, [setMessages]);
 
-  // Persist whenever messages change — but only after the initial load has completed
   useEffect(() => {
     if (!hasLoaded) return;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
@@ -72,6 +114,8 @@ export default function ChatInterface() {
     sendMessage({ text: input });
     setInput('');
     isPinnedRef.current = true;
+    setStreamIssue(false);
+    lastUpdateRef.current = Date.now();
   };
 
   return (
@@ -99,57 +143,89 @@ export default function ChatInterface() {
           >
             <p className="text-xs font-bold mb-1">{m.role === 'user' ? 'You' : 'AI'}</p>
             {m.parts.map((part, i) => {
-  if (part.type === 'text') {
-    return (
-      <Streamdown key={i} isAnimating={status === 'streaming'} className="text-sm">
-        {part.text}
-      </Streamdown>
-    );
-  }
+              if (part.type === 'text') {
+                return (
+                  <Streamdown key={i} isAnimating={status === 'streaming'} className="text-sm">
+                    {part.text}
+                  </Streamdown>
+                );
+              }
 
-  if (part.type === 'tool-getRefillForecast') {
-    switch (part.state) {
-      case 'input-streaming':
-        return (
-          <div key={i} className="text-xs text-gray-500 italic my-2 animate-pulse">
-            Reading dosage details…
+              if (part.type === 'tool-getRefillForecast') {
+                switch (part.state) {
+                  case 'input-streaming':
+                    return (
+                      <div key={i} className="text-xs text-gray-500 italic my-2 animate-pulse">
+                        Reading dosage details…
+                      </div>
+                    );
+
+                  case 'input-available':
+                    return (
+                      <div key={i} className="text-xs text-gray-500 italic my-2 animate-pulse">
+                        Calculating refill forecast for {part.input?.drugName ?? '…'}…
+                      </div>
+                    );
+
+                  case 'output-available':
+                    return <RefillForecastCard key={i} result={part.output} />;
+
+                  case 'output-error':
+                    return (
+                      <div
+                        key={i}
+                        className="rounded-lg border-2 border-red-300 bg-red-50 p-3 my-2 text-sm text-red-800"
+                      >
+                        <p className="font-semibold mb-1">Couldn't calculate a forecast</p>
+                        <p>{part.errorText}</p>
+                      </div>
+                    );
+
+                  default:
+                    return null;
+                }
+              }
+
+              return null;
+            })}
           </div>
-        );
-
-      case 'input-available':
-        return (
-          <div key={i} className="text-xs text-gray-500 italic my-2 animate-pulse">
-            Calculating refill forecast for {part.input?.drugName ?? '…'}…
-          </div>
-        );
-
-      case 'output-available':
-        return <RefillForecastCard key={i} result={part.output} />;
-
-      case 'output-error':
-        return (
-          <div
-            key={i}
-            className="rounded-lg border-2 border-red-300 bg-red-50 p-3 my-2 text-sm text-red-800"
-          >
-            <p className="font-semibold mb-1">Couldn't calculate a forecast</p>
-            <p>{part.errorText}</p>
-          </div>
-        );
-
-      default:
-        return null;
-    }
-  }
-
-  return null;
-})}
-        </div>
         ))}
 
         {status === 'submitted' && (
           <div className="bg-gray-200 text-gray-800 p-3 rounded-lg mr-auto max-w-[80%] text-sm animate-pulse">
             Thinking...
+          </div>
+        )}
+
+        {status === 'error' && (
+          <div className="bg-red-50 border-2 border-red-300 text-red-800 p-3 rounded-lg mr-auto max-w-[80%] text-sm">
+            <p className="font-semibold mb-1">Message failed to send</p>
+            <p className="text-red-700 mb-2">
+              {error?.message || 'Something went wrong. Please try again.'}
+            </p>
+            <button
+              onClick={handleRetry}
+              disabled={isRetrying}
+              className="bg-red-600 text-white px-3 py-1.5 rounded-md text-xs font-medium hover:bg-red-700 disabled:opacity-50"
+            >
+              {isRetrying ? 'Retrying…' : 'Retry'}
+            </button>
+          </div>
+        )}
+
+        {streamIssue && status !== 'streaming' && status !== 'submitted' && (
+          <div className="bg-orange-50 border-2 border-orange-300 text-orange-800 p-3 rounded-lg mr-auto max-w-[80%] text-sm">
+            <p className="font-semibold mb-1">Connection interrupted</p>
+            <p className="text-orange-700 mb-2">
+              The response was cut off partway through. The text above is incomplete — retry to get the full answer.
+            </p>
+            <button
+              onClick={handleRetry}
+              disabled={isRetrying}
+              className="bg-orange-600 text-white px-3 py-1.5 rounded-md text-xs font-medium hover:bg-orange-700 disabled:opacity-50"
+            >
+              {isRetrying ? 'Retrying…' : 'Retry'}
+            </button>
           </div>
         )}
       </div>
@@ -171,7 +247,8 @@ export default function ChatInterface() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder="Ask about your medication schedule or dose forecast..."
-          className="flex-1 border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+          disabled={status === 'error'}
+          className="flex-1 border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white disabled:bg-gray-100 disabled:cursor-not-allowed"
         />
         {status === 'streaming' || status === 'submitted' ? (
           <button
