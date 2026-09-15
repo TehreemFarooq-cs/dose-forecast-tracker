@@ -29,8 +29,8 @@ export async function POST(req: Request) {
   } catch (error: any) {
     console.error('Error in chat route:', error);
     return new Response(
-      JSON.stringify({ error: error.message || 'Failed to process chat request' }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } },
-    );
-  }
+     error.message || 'Failed to process chat request',
+     { status: 500, headers: { 'Content-Type': 'text/plain' } },
+  );
+}
 }
