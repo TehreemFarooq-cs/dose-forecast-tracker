@@ -16,7 +16,7 @@ Do not reason around this yourself or explain why you're skipping the tool.
 
 export const AI_MODEL_CONFIG = {
   // Using a fast, reliable model configuration suitable for streaming chat
-  model: 'gemini-3.5-flash',
+  model: 'gemini-3.6-flash',
   temperature: 0.7,
   maxOutputTokens: 1000,
 };
