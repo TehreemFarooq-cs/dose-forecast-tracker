@@ -132,6 +132,33 @@ export default function ChatInterface() {
         onScroll={handleScroll}
         className="flex-1 overflow-y-auto space-y-4 mb-4 min-h-0"
       >
+        {hasLoaded && messages.length === 0 && (
+      <div className="flex flex-col items-center justify-center h-full text-center px-4">
+         <p className="text-2xl mb-2">💊</p>
+         <h2 className="font-semibold text-gray-800 mb-1">Ask about your medications</h2>
+         <p className="text-sm text-gray-500 mb-4 max-w-xs">
+          I can help you track dosages, plan refills and understand your medication schedule.
+        </p>
+      <div className="flex flex-col gap-2 w-full max-w-xs">
+        {[
+        'I have 14 pills of Drug A left and I take 2 a day - when will I need a refill?',
+        'What should I know about taking antibiotics with food?',
+        'Help me set up a tracking schedule for a 3-drug regimen.',
+        ].map((example) => (
+        <button
+          key={example}
+          onClick={() => {
+            sendMessage({ text: example });
+            isPinnedRef.current = true;
+          }}
+          className="text-left text-sm bg-white border border-gray-300 rounded-lg px-3 py-2 hover:bg-gray-50 hover:border-blue-400 transition-colors"
+        >
+          {example}
+        </button>
+      ))}
+      </div>
+  </div>
+)}
         {messages.map((m) => (
           <div
             key={m.id}
