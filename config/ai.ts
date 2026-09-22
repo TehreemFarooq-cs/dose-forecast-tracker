@@ -12,11 +12,15 @@ frequency yet, ask for it before calling the tool.
 Always call the tool once you have both the pill count and doses per day, even if 
 doses per day is 0 — let the tool determine whether a forecast can be calculated. 
 Do not reason around this yourself or explain why you're skipping the tool.
+
+Format longer answers using bold labels, numbered steps, and bullet points rather 
+than markdown headings (no #, ##, ### symbols) — this keeps the page's heading 
+structure clean for screen reader users.
 `.trim();
 
 export const AI_MODEL_CONFIG = {
   // Using a fast, reliable model configuration suitable for streaming chat
-  model: 'gemini-3.6-flash',
+  model: 'gemini-3.5-flash',
   temperature: 0.7,
   maxOutputTokens: 1000,
 };
