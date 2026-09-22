@@ -1,10 +1,10 @@
 # Dose Forecast Assistant 💊
 
-**Dose Forecast Assistant** is an AI-powered chat interface that helps patients on multi-drug regimens track medication supply and forecast refill timing. It's built for anyone managing more than one prescription who needs to reason about pill counts, dosing frequency, and when they'll run out — a common but tedious task usually done manually with a calendar or pillbox. I chose this idea because it demonstrates AI used for something concrete rather than decorative: the assistant doesn't just answer questions about medications in prose, it calls a real deterministic tool (`getRefillForecast`) to calculate exact refill dates from user-supplied pill counts and dosing schedules, combining conversational flexibility with the precision a health-adjacent tool actually needs.
+**Dose Forecast Assistant** is an AI-powered chat interface that helps patients on multi-drug regimens track medication supply and forecast refill timing. It's built for anyone managing more than one prescription who needs to reason about pill counts, dosing frequency and when they'll run out - a common but tedious task usually done manually with a calendar or pillbox. I chose this idea because it demonstrates AI used for something concrete rather than decorative: the assistant doesn't just answer questions about medications in prose, it calls a real deterministic tool (`getRefillForecast`) to calculate exact refill dates from user-supplied pill counts and dosing schedules, combining conversational flexibility with the precision a health-adjacent tool actually needs.
 
 ## Live Demo
 
-[your Vercel URL here]
+[https://dose-forecast-tracker-git-capstone-tehreem-dev.vercel.app/]
 
 ## Stack
 
@@ -18,7 +18,7 @@
 ## Features
 
 - Token-by-token streaming responses
-- Stop button — cancels generation mid-stream without breaking chat state
+- Stop button - cancels generation mid-stream without breaking chat state
 - Scroll-aware auto-scroll: pins to bottom while the user is at the bottom, releases on manual scroll up, with a "Jump to latest" affordance
 - Thinking indicator before the first token
 - A real server-side tool (`getRefillForecast`) with typed lifecycle states rendered distinctly in the UI
@@ -26,7 +26,7 @@
 - "Clear conversation" control
 - First-run empty state with click-to-fill example prompts
 - Mobile-friendly layout (`h-dvh`, responsive input)
-- Designed error states for network failures, mid-stream disconnects, rate limits, and tool execution failures — each with a working retry
+- Designed error states for network failures, mid-stream disconnects, rate limits and tool execution failures - each with a working retry
 
 ## Getting Started
 
@@ -59,7 +59,7 @@ Open [http://localhost:3000](http://localhost:3000).
 
 Calculates when a medication will run out and needs a refill, based on current pill count and daily dosage.
 
-**When it's used:** the assistant calls this automatically whenever the user asks about refill timing, running out of medication, or how long their current supply will last — once it has a pill count and a doses-per-day figure.
+**When it's used:** the assistant calls this automatically whenever the user asks about refill timing, running out of medication, or how long their current supply will last - once it has a pill count and a doses-per-day figure.
 
 **Input schema (Zod):**
 
@@ -137,7 +137,7 @@ npm test
 - [x] Tested at mobile viewport width
 - [x] Lighthouse and axe results confirmed above
 
-**Monitoring:** Vercel's built-in deployment and runtime function logs. No external monitoring/alerting (e.g. Sentry) integrated at this stage — a known limitation.
+**Monitoring:** Vercel's built-in deployment and runtime function logs. No external monitoring/alerting (e.g. Sentry) integrated at this stage - a known limitation.
 
 **Rollback Plan:** If a deployment regresses, go to the Vercel dashboard → Deployments → locate the last known-good deployment → **Promote to Production** to instantly revert the live URL without a new commit. Fix forward on `capstone` in parallel, then promote the new build once verified.
 
@@ -145,12 +145,12 @@ npm test
 
 - If the page is refreshed while a response is actively streaming, that partial message is not recovered — persistence is client-only via `localStorage`, with no server-side stream resumption.
 - No automated alerting/monitoring beyond Vercel's built-in logs.
-- Mobile Lighthouse Performance (75–82) is below the 90+ target; a real trade-off made under time constraints (see Reflection).
+- Mobile Lighthouse Performance (75–82) is below the 90+ target; a real trade-off made under time constraints.
 
 ## Reflection
 
-**What was hardest, and why:** The hardest problems weren't the AI integration itself — streaming, tool calling, and structured output all worked close to as documented once I understood the current SDK version's API surface. What consistently cost the most time was the *seams between systems that don't fail loudly*. A missing Tailwind install produced a cascade of layout symptoms that looked like a scroll bug, a flex bug, and a CSS bug in turn, before the real cause surfaced. Detecting a mid-stream connection failure was similarly deceptive: the AI SDK's own disconnect signal didn't fire reliably in testing, and Chrome DevTools' network throttling doesn't reliably simulate real browser offline events either — so I built a client-side stall-timeout heuristic instead, calibrating it against real (sometimes slow) model response times after two rounds of false positives.
+**What was hardest, and why:** The hardest problems weren't the AI integration itself - streaming, tool calling, and structured output all worked close to as documented once I understood the current SDK version's API surface. What consistently cost the most time was the *seams between systems that don't fail loudly*. A missing Tailwind install produced a cascade of layout symptoms that looked like a scroll bug, a flex bug, and a CSS bug in turn, before the real cause surfaced. Detecting a mid-stream connection failure was similarly deceptive: the AI SDK's own disconnect signal didn't fire reliably in testing and Chrome DevTools' network throttling doesn't reliably simulate real browser offline events either - so I built a client-side stall-timeout heuristic instead, calibrating it against real (sometimes slow) model response times after two rounds of false positives.
 
-**What I'd do differently next time:** I'd write tests earlier, in parallel with features, rather than as a late-stage pass — testing `getRefillForecast` after the fact was easy precisely because it's a pure function, but writing that test first likely would have surfaced the 0-doses-per-day edge case as a designed requirement from the start. I'd also audit accessibility and performance continuously rather than at the end — it turned out to be mostly clean already from using semantic HTML throughout, suggesting it's cheaper to maintain than to fix retroactively.
+**What I'd do differently next time:** I'd write tests earlier, in parallel with features, rather than as a late-stage pass — testing `getRefillForecast` after the fact was easy precisely because it's a pure function, but writing that test first likely would have surfaced the 0-doses-per-day edge case as a designed requirement from the start. I'd also audit accessibility and performance continuously rather than at the end - it turned out to be mostly clean already from using semantic HTML throughout, suggesting it's cheaper to maintain than to fix retroactively.
 
-**One thing that surprised me:** How much of "AI product engineering" is actually about the failure paths, not the happy path. The model calling a tool and returning a clean result was the easy part; correctly distinguishing a legitimately slow response from a dead connection, forwarding a useful error message instead of a masked generic one, and making a retry button resend only the failed message instead of the whole conversation took far more iteration than the core streaming/tool-calling implementation itself.
+**One thing that surprised me:** How much of "AI product engineering" is actually about the failure paths, not the happy path. The model calling a tool and returning a clean result was the easy part; correctly distinguishing a legitimately slow response from a dead connection, forwarding a useful error message instead of a masked generic one and making a retry button resend only the failed message instead of the whole conversation took far more iteration than the core streaming/tool-calling implementation itself.
