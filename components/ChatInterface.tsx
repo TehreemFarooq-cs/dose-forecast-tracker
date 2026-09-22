@@ -3,8 +3,14 @@
 import RefillForecastCard from './RefillForecastCard';
 import { useChat } from '@ai-sdk/react';
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Streamdown } from 'streamdown';
+//import { Streamdown } from 'streamdown';
 import type { MyUIMessage } from '@/lib/chat-types';
+import dynamic from 'next/dynamic';
+
+const Streamdown = dynamic(
+  () => import('streamdown').then((mod) => mod.Streamdown),
+  { ssr: false }
+);
 
 const STORAGE_KEY = 'dose-forecast-chat';
 const STALL_TIMEOUT_MS = 30000; // no new content for 30s while active = treat as failed
