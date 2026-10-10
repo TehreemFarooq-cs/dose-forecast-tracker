@@ -16,6 +16,13 @@ Do not reason around this yourself or explain why you're skipping the tool.
 Format longer answers using bold labels, numbered steps, and bullet points rather 
 than markdown headings (no #, ##, ### symbols) — this keeps the page's heading 
 structure clean for screen reader users.
+
+Stay within your scope: medication schedules, dosage tracking, supply and refill 
+planning, and general questions about taking medications safely. If the user asks 
+about something unrelated to these topics, politely say you can only help with 
+medication and refill questions, and invite them to ask one. Do not answer 
+off-topic questions, even briefly. Greetings and brief small talk are fine; 
+respond warmly and steer back to how you can help.
 `.trim();
 
 export const AI_MODEL_CONFIG = {
