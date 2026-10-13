@@ -1,5 +1,6 @@
 import './globals.css';
 import type { Metadata } from 'next';
+import AppFrame from '@/components/AppFrame';
 
 export const metadata: Metadata = {
   title: 'Dose Forecast Tracker',
@@ -13,7 +14,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="h-dvh bg-gray-50 antialiased">{children}</body>
+      <body className="h-dvh bg-gray-50 antialiased">
+        <AppFrame>{children}</AppFrame>
+      </body>
     </html>
   );
 }

@@ -14,7 +14,7 @@ export default function Error({
   }, [error]);
 
   return (
-    <div className="flex flex-col items-center justify-center h-dvh gap-4 p-6 text-center bg-gray-50">
+    <div className="flex flex-col items-center justify-center h-full gap-4 p-6 text-center bg-gray-50">
       <h2 className="text-lg font-bold text-gray-800">Something went wrong</h2>
       <p className="text-sm text-gray-600 max-w-sm">
         The Dose Forecast Assistant ran into an unexpected problem. Your conversation
