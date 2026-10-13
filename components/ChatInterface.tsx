@@ -1,25 +1,52 @@
 'use client';
 
 import RefillForecastCard from './RefillForecastCard';
-import { useChat } from '@ai-sdk/react';
-import { useState, useRef, useEffect, useCallback } from 'react';
-//import { Streamdown } from 'streamdown';
-import type { MyUIMessage } from '@/lib/chat-types';
 import dynamic from 'next/dynamic';
+import { useChat } from '@ai-sdk/react';
+import { DefaultChatTransport } from 'ai';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import type { MyUIMessage } from '@/lib/chat-types';
+import { useMedications } from '@/lib/use-medications';
 
 const Streamdown = dynamic(
   () => import('streamdown').then((mod) => mod.Streamdown),
-  { ssr: false }
+  { ssr: false },
 );
 
 const STORAGE_KEY = 'dose-forecast-chat';
 const STALL_TIMEOUT_MS = 30000; // no new content for 30s while active = treat as failed
 
 export default function ChatInterface() {
+  const { medications } = useMedications();
+
+  // Keep the latest saved medications in a ref so every request (send, retry,
+  // example prompt) carries the current stock without recreating the transport.
+  const medsRef = useRef(medications);
+  useEffect(() => {
+    medsRef.current = medications;
+  }, [medications]);
+
+  const transport = useMemo(
+    () =>
+      new DefaultChatTransport<MyUIMessage>({
+        api: '/api/chat',
+        // A function, not an object: an object would be captured once and go stale.
+        body: () => ({
+          medications: medsRef.current.map(({ name, pillsRemaining, dosesPerDay }) => ({
+            name,
+            pillsRemaining,
+            dosesPerDay,
+          })),
+        }),
+      }),
+    [],
+  );
+
   const [streamIssue, setStreamIssue] = useState(false);
 
   const { messages, sendMessage, status, stop, setMessages, error, regenerate } =
     useChat<MyUIMessage>({
+      transport,
       onFinish: ({ isDisconnect }) => {
         if (isDisconnect) {
           setStreamIssue(true);
@@ -35,16 +62,32 @@ export default function ChatInterface() {
   const [isRetrying, setIsRetrying] = useState(false);
   const lastUpdateRef = useRef(Date.now());
 
+  const examples =
+    medications.length > 0
+      ? [
+          `When will my ${medications[0].name} run out?`,
+          'Which of my medications needs a refill first?',
+          'What should I know about taking antibiotics with food?',
+        ]
+      : [
+          'I have 14 pills of Drug A left and I take 2 a day — when will I need a refill?',
+          'What should I know about taking antibiotics with food?',
+          'Help me set up a tracking schedule for a 3-drug regimen.',
+        ];
+
+  // Reset the retry-guard once a retry actually resolves (success or new error)
   useEffect(() => {
     if (status !== 'submitted' && status !== 'streaming') {
       setIsRetrying(false);
     }
   }, [status]);
 
+  // Track the last time messages actually changed, so we can detect a silent stall
   useEffect(() => {
     lastUpdateRef.current = Date.now();
   }, [messages]);
 
+  // Watchdog: if streaming/submitted goes quiet too long, treat it as a failed connection
   useEffect(() => {
     if (status !== 'streaming' && status !== 'submitted') return;
 
@@ -66,6 +109,7 @@ export default function ChatInterface() {
     regenerate();
   };
 
+  // Load saved conversation once, after mount (browser-only, avoids hydration mismatch)
   useEffect(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
@@ -78,6 +122,7 @@ export default function ChatInterface() {
     setHasLoaded(true);
   }, [setMessages]);
 
+  // Persist whenever messages change — but only after the initial load has completed
   useEffect(() => {
     if (!hasLoaded) return;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
@@ -139,32 +184,31 @@ export default function ChatInterface() {
         className="flex-1 overflow-y-auto space-y-4 mb-4 min-h-0"
       >
         {hasLoaded && messages.length === 0 && (
-      <div className="flex flex-col items-center justify-center h-full text-center px-4">
-         <p className="text-2xl mb-2">💊</p>
-         <h2 className="font-semibold text-gray-800 mb-1">Ask about your medications</h2>
-         <p className="text-sm text-gray-500 mb-4 max-w-xs">
-          I can help you track dosages, plan refills and understand your medication schedule.
-        </p>
-      <div className="flex flex-col gap-2 w-full max-w-xs">
-        {[
-        'I have 14 pills of Drug A left and I take 2 a day - when will I need a refill?',
-        'What should I know about taking antibiotics with food?',
-        'Help me set up a tracking schedule for a 3-drug regimen.',
-        ].map((example) => (
-        <button
-          key={example}
-          onClick={() => {
-            sendMessage({ text: example });
-            isPinnedRef.current = true;
-          }}
-          className="text-left text-sm bg-white border border-gray-300 rounded-lg px-3 py-2 hover:bg-gray-50 hover:border-blue-400 transition-colors"
-        >
-          {example}
-        </button>
-      ))}
-      </div>
-  </div>
-)}
+          <div className="flex flex-col items-center justify-center h-full text-center px-4">
+            <p className="text-2xl mb-2" aria-hidden="true">
+              💊
+            </p>
+            <h2 className="font-semibold text-gray-800 mb-1">Ask about your medications</h2>
+            <p className="text-sm text-gray-500 mb-4 max-w-xs">
+              I can help you track dosages, plan refills, and understand your medication schedule.
+            </p>
+            <div className="flex flex-col gap-2 w-full max-w-xs">
+              {examples.map((example) => (
+                <button
+                  key={example}
+                  onClick={() => {
+                    sendMessage({ text: example });
+                    isPinnedRef.current = true;
+                  }}
+                  className="text-left text-sm bg-white border border-gray-300 rounded-lg px-3 py-2 hover:bg-gray-50 hover:border-blue-400 transition-colors"
+                >
+                  {example}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {messages.map((m) => (
           <div
             key={m.id}
@@ -250,7 +294,8 @@ export default function ChatInterface() {
           <div className="bg-orange-50 border-2 border-orange-300 text-orange-800 p-3 rounded-lg mr-auto max-w-[80%] text-sm">
             <p className="font-semibold mb-1">Connection interrupted</p>
             <p className="text-orange-700 mb-2">
-              The response was cut off partway through. The text above is incomplete — retry to get the full answer.
+              The response was cut off partway through. The text above is incomplete — retry to get
+              the full answer.
             </p>
             <button
               onClick={handleRetry}

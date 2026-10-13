@@ -1,17 +1,24 @@
 import { google } from '@ai-sdk/google';
 import { streamText, convertToModelMessages, type UIMessage } from 'ai';
-import { DOSE_FORECAST_SYSTEM_PROMPT, AI_MODEL_CONFIG } from '@/config/ai';
+import { AI_MODEL_CONFIG, buildSystemPrompt } from '@/config/ai';
 import { tools } from '@/lib/tools';
+import { inventorySchema } from '@/lib/medications';
 
 export const maxDuration = 30;
 
 export async function POST(req: Request) {
   try {
-    const { messages }: { messages: UIMessage[] } = await req.json();
+    const body = await req.json();
+    const messages: UIMessage[] = body.messages;
+
+    // Saved medications come from the browser (local-first storage), so treat them
+    // as untrusted input: validate, cap the size, and fall back to "none" if invalid.
+    const parsed = inventorySchema.safeParse(body.medications ?? []);
+    const medications = parsed.success ? parsed.data : [];
 
     const result = streamText({
       model: google(AI_MODEL_CONFIG.model),
-      system: DOSE_FORECAST_SYSTEM_PROMPT,
+      system: buildSystemPrompt(medications),
       messages: await convertToModelMessages(messages),
       temperature: AI_MODEL_CONFIG.temperature,
       maxOutputTokens: AI_MODEL_CONFIG.maxOutputTokens,
@@ -28,9 +35,9 @@ export async function POST(req: Request) {
     });
   } catch (error: any) {
     console.error('Error in chat route:', error);
-    return new Response(
-     error.message || 'Failed to process chat request',
-     { status: 500, headers: { 'Content-Type': 'text/plain' } },
-  );
-}
+    return new Response(error.message || 'Failed to process chat request', {
+      status: 500,
+      headers: { 'Content-Type': 'text/plain' },
+    });
+  }
 }

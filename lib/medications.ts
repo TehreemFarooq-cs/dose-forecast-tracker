@@ -8,7 +8,7 @@ export type Medication = {
   createdAt: string; // ISO timestamp
 };
 
-// Validation shared by the form, the store, and (later) the chat tools.
+// Validation shared by the form, the store, and the chat route.
 export const medicationInputSchema = z.object({
   name: z.string().trim().min(1, 'Name is required').max(60, 'Keep the name under 60 characters'),
   pillsRemaining: z.number().int('Whole pills only').min(0, 'Cannot be negative').max(10000),
@@ -16,3 +16,6 @@ export const medicationInputSchema = z.object({
 });
 
 export type MedicationInput = z.infer<typeof medicationInputSchema>;
+
+// What the chat route accepts from the browser: a capped list of medications.
+export const inventorySchema = z.array(medicationInputSchema).max(30);
