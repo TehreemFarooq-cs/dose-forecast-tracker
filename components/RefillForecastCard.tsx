@@ -1,11 +1,4 @@
-type RefillForecastResult = {
-  drugName: string;
-  pillsRemaining: number;
-  dosesPerDay: number;
-  daysRemaining: number;
-  refillByDate: string;
-  status: 'ok' | 'low' | 'critical';
-};
+import type { RefillForecast } from '@/lib/forecast';
 
 const STATUS_STYLES = {
   ok: { bg: 'bg-green-50', border: 'border-green-300', text: 'text-green-800', label: 'On track' },
@@ -13,8 +6,9 @@ const STATUS_STYLES = {
   critical: { bg: 'bg-red-50', border: 'border-red-300', text: 'text-red-800', label: 'Refill now' },
 } as const;
 
-export default function RefillForecastCard({ result }: { result: RefillForecastResult }) {
+export default function RefillForecastCard({ result }: { result: RefillForecast }) {
   const s = STATUS_STYLES[result.status];
+  const daysText = `${result.daysRemaining} ${result.daysRemaining === 1 ? 'day' : 'days'}`;
 
   return (
     <div className={`rounded-lg border-2 ${s.border} ${s.bg} p-4 my-2`}>
@@ -27,7 +21,7 @@ export default function RefillForecastCard({ result }: { result: RefillForecastR
       <div className="grid grid-cols-2 gap-2 text-sm text-gray-700">
         <div>
           <p className="text-xs text-gray-500">Days remaining</p>
-          <p className="font-semibold">{result.daysRemaining} days</p>
+          <p className="font-semibold">{daysText}</p>
         </div>
         <div>
           <p className="text-xs text-gray-500">Refill by</p>
