@@ -1,5 +1,6 @@
 import { tool } from 'ai';
 import { z } from 'zod';
+import { calculateRefillForecast } from './forecast';
 
 export const getRefillForecast = tool({
   description:
@@ -21,34 +22,10 @@ export const getRefillForecast = tool({
       .number()
       .min(0)
       .describe(
-        'How many doses are taken per day. Use 0 for as-needed (PRN) medications.'
+        'How many doses are taken per day. Use 0 for as-needed (PRN) medications.',
       ),
   }),
-  execute: async ({ drugName, pillsRemaining, dosesPerDay }) => {
-    if (dosesPerDay === 0) {
-      throw new Error(
-        `${drugName} is marked as as-needed (0 doses/day), so a refill date can't be calculated automatically.`
-      );
-    }
-
-    const daysRemaining = Math.floor(pillsRemaining / dosesPerDay);
-
-    const refillByDate = new Date();
-    refillByDate.setDate(refillByDate.getDate() + daysRemaining);
-
-    let status: 'ok' | 'low' | 'critical';
-    if (daysRemaining > 7) status = 'ok';
-    else if (daysRemaining > 2) status = 'low';
-    else status = 'critical';
-
-    return {
-      drugName,
-      pillsRemaining,
-      dosesPerDay,
-      daysRemaining,
-      refillByDate: refillByDate.toISOString().split('T')[0], // YYYY-MM-DD
-      status,
-    };
-  },
+  execute: async (input) => calculateRefillForecast(input),
 });
+
 export const tools = { getRefillForecast };
