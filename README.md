@@ -1,5 +1,5 @@
 # DoseForecast Tracker 💊
-A tracking application for chronic-medication inventory management — forecasts refill shortages from dosage schedule and consumption logs, instead of relying on simple reminder alarms.
+A tracking application for chronic-medication inventory management - forecasts refill shortages from dosage schedule and consumption logs, instead of relying on simple reminder alarms.
 
 ## Status
 
