@@ -35,6 +35,20 @@ export const AI_MODEL_CONFIG = {
   maxOutputTokens: 1000,
 };
 
+const CHANGE_RULES = [
+  'Changing the saved list:',
+  '- If the user asks to add or start tracking a medication, call addMedication once you ' +
+    'have its name, pills remaining, and doses per day (ask for anything missing). The user ' +
+    'approves the change in the app before it is saved.',
+  '- If the user says how many pills they have now, or that they picked up more, call ' +
+    'updateMedicationStock with the NEW TOTAL number of pills (for example, 3 pills on the ' +
+    'list plus 30 more is a total of 33). Only use it for medications already on the saved list.',
+  '- After a tool result: if the status is saved or updated, confirm in one short sentence. ' +
+    'If declined, acknowledge briefly and do not retry unless asked. If not_found, say the ' +
+    'medication is not on the list and offer to add it.',
+  '- Never say a change was saved until the tool result says so.',
+].join('\n');
+
 // Keep each entry on one line so a medication name can't start a new prompt section.
 function oneLine(text: string) {
   return text.replace(/\s+/g, ' ').trim();
@@ -98,7 +112,8 @@ export function buildSystemPrompt(
       DOSE_FORECAST_SYSTEM_PROMPT,
       todayLine,
       'The user has not saved any medications yet. If they ask about refills, ask for a pill ' +
-        'count and doses per day, or suggest adding the medication on the Medications page.',
+        'count and doses per day, or offer to add the medication to their list.',
+      CHANGE_RULES,
     ].join('\n\n');
   }
 
@@ -122,11 +137,13 @@ export function buildSystemPrompt(
       'for every medication.',
     '- If the user asks about one specific medication on this list, call getRefillForecast ' +
       'with its numbers so they see the forecast card.',
-    '- Never call the tool for an as-needed medication on this list. Say that no refill date ' +
-      'can be forecast because it has no fixed schedule, and mention how many pills are left.',
-    '- If the user says their stock differs from this list, use what they tell you and ' +
-      'suggest updating it on the Medications page.',
+    '- Never call getRefillForecast for an as-needed medication on this list. Say that no ' +
+      'refill date can be forecast because it has no fixed schedule, and mention how many ' +
+      'pills are left.',
+    '- If the user says their stock differs from this list, use what they tell you.',
   ].join('\n');
 
-  return [DOSE_FORECAST_SYSTEM_PROMPT, todayLine, list, soonestLine, rules].join('\n\n');
+  return [DOSE_FORECAST_SYSTEM_PROMPT, todayLine, list, soonestLine, rules, CHANGE_RULES].join(
+    '\n\n',
+  );
 }

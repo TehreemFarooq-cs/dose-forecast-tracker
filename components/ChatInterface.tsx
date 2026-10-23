@@ -1,12 +1,15 @@
 'use client';
 
 import RefillForecastCard from './RefillForecastCard';
+import { ToolApprovalCard, ToolOutcomeCard } from './ToolApprovalCard';
 import dynamic from 'next/dynamic';
 import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport } from 'ai';
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import type { MyUIMessage } from '@/lib/chat-types';
 import { useMedications } from '@/lib/use-medications';
+import { localMedicationStore } from '@/lib/medication-store';
+import type { Medication } from '@/lib/medications';
 
 const Streamdown = dynamic(
   () => import('streamdown').then((mod) => mod.Streamdown),
@@ -15,9 +18,44 @@ const Streamdown = dynamic(
 
 const STORAGE_KEY = 'dose-forecast-chat';
 const STALL_TIMEOUT_MS = 30000; // no new content for 30s while active = treat as failed
+const SAVE_ERROR =
+  "That change couldn't be saved. Check the name, pill count, and doses per day, then try again.";
+
+type MessagePart = MyUIMessage['parts'][number];
+type AddPart = Extract<MessagePart, { type: 'tool-addMedication' }>;
+type UpdatePart = Extract<MessagePart, { type: 'tool-updateMedicationStock' }>;
+
+const CLIENT_TOOL_TYPES = ['tool-addMedication', 'tool-updateMedicationStock'];
+
+function findMedication(list: Medication[], name: string) {
+  const wanted = name.trim().toLowerCase();
+  return list.find((m) => m.name.trim().toLowerCase() === wanted);
+}
+
+// Auto-continue only after the user answered one of the approval tools. The SDK's
+// built-in helper would also re-send after every server-side forecast, costing an
+// extra request on a rate-limited key. Only the latest step is checked (after the
+// last 'step-start'), so the follow-up reply can't trigger another send.
+function shouldSendAfterMedicationTools({ messages }: { messages: MyUIMessage[] }) {
+  const last = messages[messages.length - 1];
+  if (!last || last.role !== 'assistant') return false;
+
+  let lastStepStart = -1;
+  last.parts.forEach((part, index) => {
+    if (part.type === 'step-start') lastStepStart = index;
+  });
+
+  const toolParts = last.parts.slice(lastStepStart + 1).filter((p) => p.type.startsWith('tool-'));
+  const hasClientTool = toolParts.some((p) => CLIENT_TOOL_TYPES.includes(p.type));
+  const allAnswered = toolParts.every(
+    (p) => 'state' in p && (p.state === 'output-available' || p.state === 'output-error'),
+  );
+
+  return hasClientTool && allAnswered;
+}
 
 export default function ChatInterface() {
-  const { medications } = useMedications();
+  const { medications, add, update } = useMedications();
 
   // Keep the latest saved medications in a ref so every request (send, retry,
   // example prompt) carries the current stock without recreating the transport.
@@ -44,9 +82,10 @@ export default function ChatInterface() {
 
   const [streamIssue, setStreamIssue] = useState(false);
 
-  const { messages, sendMessage, status, stop, setMessages, error, regenerate } =
+  const { messages, sendMessage, status, stop, setMessages, error, regenerate, addToolOutput } =
     useChat<MyUIMessage>({
       transport,
+      sendAutomaticallyWhen: shouldSendAfterMedicationTools,
       onFinish: ({ isDisconnect }) => {
         if (isDisconnect) {
           setStreamIssue(true);
@@ -60,20 +99,259 @@ export default function ChatInterface() {
   const [showJumpToLatest, setShowJumpToLatest] = useState(false);
   const [hasLoaded, setHasLoaded] = useState(false);
   const [isRetrying, setIsRetrying] = useState(false);
+  const [busyToolCallId, setBusyToolCallId] = useState<string | null>(null);
   const lastUpdateRef = useRef(Date.now());
+
+  // While an approval card is open the assistant is waiting for an answer, so sending
+  // another message would leave that tool call without a result and the server would
+  // reject the request.
+  const lastMessage = messages[messages.length - 1];
+  const hasPendingApproval =
+    lastMessage?.role === 'assistant' &&
+    lastMessage.parts.some(
+      (p) =>
+        (p.type === 'tool-addMedication' || p.type === 'tool-updateMedicationStock') &&
+        p.state === 'input-available',
+    );
 
   const examples =
     medications.length > 0
       ? [
           `When will my ${medications[0].name} run out?`,
           'Which of my medications needs a refill first?',
-          'What should I know about taking antibiotics with food?',
+          'Add Cetirizine, 30 pills, 1 a day',
         ]
       : [
+          'Add Cetirizine, 30 pills, 1 a day',
           'I have 14 pills of Drug A left and I take 2 a day — when will I need a refill?',
           'What should I know about taking antibiotics with food?',
-          'Help me set up a tracking schedule for a 3-drug regimen.',
         ];
+
+  // --- Approval handlers: the write happens here, in the browser, then we report back. ---
+
+  const approveAdd = async (
+    toolCallId: string,
+    input: { name: string; pillsRemaining: number; dosesPerDay: number },
+  ) => {
+    if (busyToolCallId) return;
+    setBusyToolCallId(toolCallId);
+    try {
+      const saved = await add(input);
+      // Refresh the ref now so the follow-up request already includes the new medication.
+      medsRef.current = await localMedicationStore.list();
+      addToolOutput({
+        tool: 'addMedication',
+        toolCallId,
+        output: { status: 'saved', name: saved.name },
+      });
+    } catch {
+      addToolOutput({
+        tool: 'addMedication',
+        toolCallId,
+        state: 'output-error',
+        errorText: SAVE_ERROR,
+      });
+    } finally {
+      setBusyToolCallId(null);
+    }
+  };
+
+  const declineAdd = (toolCallId: string, name: string) => {
+    addToolOutput({ tool: 'addMedication', toolCallId, output: { status: 'declined', name } });
+  };
+
+  const approveUpdate = async (
+    toolCallId: string,
+    input: { name: string; pillsRemaining: number },
+  ) => {
+    if (busyToolCallId) return;
+    const target = findMedication(medsRef.current, input.name);
+    if (!target) {
+      addToolOutput({
+        tool: 'updateMedicationStock',
+        toolCallId,
+        output: { status: 'not_found', name: input.name },
+      });
+      return;
+    }
+
+    setBusyToolCallId(toolCallId);
+    try {
+      await update(target.id, { pillsRemaining: input.pillsRemaining });
+      medsRef.current = await localMedicationStore.list();
+      addToolOutput({
+        tool: 'updateMedicationStock',
+        toolCallId,
+        output: { status: 'updated', name: target.name },
+      });
+    } catch {
+      addToolOutput({
+        tool: 'updateMedicationStock',
+        toolCallId,
+        state: 'output-error',
+        errorText: SAVE_ERROR,
+      });
+    } finally {
+      setBusyToolCallId(null);
+    }
+  };
+
+  const respondUpdate = (toolCallId: string, name: string, status: 'declined' | 'not_found') => {
+    addToolOutput({ tool: 'updateMedicationStock', toolCallId, output: { status, name } });
+  };
+
+  // --- Rendering for the two approval tools ---
+
+  const renderAddMedication = (part: AddPart, key: number) => {
+    switch (part.state) {
+      case 'input-streaming':
+        return (
+          <p key={key} className="text-xs text-gray-500 italic my-2 animate-pulse">
+            Preparing a change to your list…
+          </p>
+        );
+
+      case 'input-available': {
+        const { name, pillsRemaining, dosesPerDay } = part.input;
+        const exists = Boolean(findMedication(medications, name));
+        return (
+          <ToolApprovalCard
+            key={key}
+            title="Add this medication?"
+            lines={[
+              name,
+              `${pillsRemaining} ${pillsRemaining === 1 ? 'pill' : 'pills'} in stock`,
+              dosesPerDay === 0 ? 'As-needed' : `${dosesPerDay} per day`,
+            ]}
+            note={
+              exists
+                ? 'A medication with this name is already on your list. Approving adds a second entry.'
+                : undefined
+            }
+            approveLabel="Add medication"
+            busy={busyToolCallId === part.toolCallId}
+            onApprove={() => approveAdd(part.toolCallId, part.input)}
+            onDecline={() => declineAdd(part.toolCallId, name)}
+          />
+        );
+      }
+
+      case 'output-available':
+        return part.output.status === 'saved' ? (
+          <ToolOutcomeCard
+            key={key}
+            tone="success"
+            title={`Added ${part.output.name}`}
+            detail="It's now on your Medications page."
+          />
+        ) : (
+          <ToolOutcomeCard
+            key={key}
+            tone="neutral"
+            title="Change declined"
+            detail="Your list was not changed."
+          />
+        );
+
+      case 'output-error':
+        return (
+          <ToolOutcomeCard
+            key={key}
+            tone="error"
+            title="Couldn't save the change"
+            detail={part.errorText}
+          />
+        );
+
+      default:
+        return null;
+    }
+  };
+
+  const renderUpdateStock = (part: UpdatePart, key: number) => {
+    switch (part.state) {
+      case 'input-streaming':
+        return (
+          <p key={key} className="text-xs text-gray-500 italic my-2 animate-pulse">
+            Preparing a change to your list…
+          </p>
+        );
+
+      case 'input-available': {
+        const { name, pillsRemaining } = part.input;
+        const target = findMedication(medications, name);
+
+        if (!target) {
+          return (
+            <ToolApprovalCard
+              key={key}
+              title="Can't update that"
+              note={`There's no saved medication named "${name}".`}
+              declineLabel="Dismiss"
+              onDecline={() => respondUpdate(part.toolCallId, name, 'not_found')}
+            />
+          );
+        }
+
+        return (
+          <ToolApprovalCard
+            key={key}
+            title="Update stock?"
+            lines={[target.name, `${target.pillsRemaining} → ${pillsRemaining} pills`]}
+            approveLabel="Update stock"
+            busy={busyToolCallId === part.toolCallId}
+            onApprove={() => approveUpdate(part.toolCallId, part.input)}
+            onDecline={() => respondUpdate(part.toolCallId, name, 'declined')}
+          />
+        );
+      }
+
+      case 'output-available': {
+        const { status, name } = part.output;
+        if (status === 'updated') {
+          return (
+            <ToolOutcomeCard
+              key={key}
+              tone="success"
+              title={`Updated ${name}`}
+              detail="Your stock count was saved."
+            />
+          );
+        }
+        if (status === 'not_found') {
+          return (
+            <ToolOutcomeCard
+              key={key}
+              tone="warning"
+              title="Nothing was changed"
+              detail={`There's no saved medication named "${name}".`}
+            />
+          );
+        }
+        return (
+          <ToolOutcomeCard
+            key={key}
+            tone="neutral"
+            title="Change declined"
+            detail="Your list was not changed."
+          />
+        );
+      }
+
+      case 'output-error':
+        return (
+          <ToolOutcomeCard
+            key={key}
+            tone="error"
+            title="Couldn't save the change"
+            detail={part.errorText}
+          />
+        );
+
+      default:
+        return null;
+    }
+  };
 
   // Reset the retry-guard once a retry actually resolves (success or new error)
   useEffect(() => {
@@ -161,7 +439,7 @@ export default function ChatInterface() {
 
   const handleSend = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || status !== 'ready') return;
+    if (!input.trim() || status !== 'ready' || hasPendingApproval) return;
     sendMessage({ text: input });
     setInput('');
     isPinnedRef.current = true;
@@ -226,6 +504,14 @@ export default function ChatInterface() {
                     {part.text}
                   </Streamdown>
                 );
+              }
+
+              if (part.type === 'tool-addMedication') {
+                return renderAddMedication(part, i);
+              }
+
+              if (part.type === 'tool-updateMedicationStock') {
+                return renderUpdateStock(part, i);
               }
 
               if (part.type === 'tool-getRefillForecast') {
@@ -324,8 +610,12 @@ export default function ChatInterface() {
           name="message"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Ask about your medication schedule or dose forecast..."
-          disabled={status === 'error'}
+          placeholder={
+            hasPendingApproval
+              ? 'Approve or decline the request above to continue'
+              : 'Ask about your medication schedule or dose forecast...'
+          }
+          disabled={status === 'error' || hasPendingApproval}
           className="flex-1 border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white disabled:bg-gray-100 disabled:cursor-not-allowed"
         />
         {status === 'streaming' || status === 'submitted' ? (
@@ -339,7 +629,7 @@ export default function ChatInterface() {
         ) : (
           <button
             type="submit"
-            disabled={status !== 'ready' || !input.trim()}
+            disabled={status !== 'ready' || !input.trim() || hasPendingApproval}
             className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
           >
             Send
