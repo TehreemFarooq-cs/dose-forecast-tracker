@@ -2,7 +2,8 @@
 
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
-import RefillForecastCard from './RefillForecastCard';
+import StatusWord from './StatusWord';
+import SupplyStrip from './SupplyStrip';
 import { useMedications } from '@/lib/use-medications';
 import { useDoseLog } from '@/lib/use-dose-log';
 import { calculateRefillForecast, type RefillForecast } from '@/lib/forecast';
@@ -10,30 +11,23 @@ import { weeklyAdherence } from '@/lib/adherence';
 import { buildSampleLogs, sampleCreatedAt, sampleMedications } from '@/lib/sample-data';
 import type { Medication } from '@/lib/medications';
 
-const BAR_COLOR = {
-  ok: 'bg-green-500',
-  low: 'bg-yellow-500',
-  critical: 'bg-red-500',
-} as const;
-const MAX_BAR_DAYS = 30;
-
 const weekdayFormatter = new Intl.DateTimeFormat(undefined, { weekday: 'short' });
 
-type Entry = { id: string; forecast: RefillForecast };
+type Row = { med: Medication; forecast: RefillForecast | null };
 
-function adherenceColor(percent: number) {
-  if (percent >= 80) return 'bg-green-500';
-  if (percent >= 50) return 'bg-yellow-500';
-  return 'bg-red-500';
+function dayCount(n: number) {
+  return `${n} ${n === 1 ? 'day' : 'days'}`;
 }
 
-function Stat({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="bg-white border border-gray-200 rounded-lg p-3">
-      <dt className="text-xs text-gray-500">{label}</dt>
-      <dd className="text-lg font-semibold text-gray-800">{children}</dd>
-    </div>
-  );
+function pillCount(n: number) {
+  return `${n} ${n === 1 ? 'pill' : 'pills'}`;
+}
+
+function adherenceTint(percent: number | null) {
+  if (percent === null) return 'bg-panel';
+  if (percent >= 80) return 'bg-ok-tint';
+  if (percent >= 50) return 'bg-low-tint';
+  return 'bg-critical-tint';
 }
 
 export default function DashboardHome() {
@@ -45,27 +39,52 @@ export default function DashboardHome() {
   // HTML and the first client render match.
   const hasLoaded = medsLoaded && logsLoaded;
 
-  const entries: Entry[] = useMemo(
-    () =>
-      medications
-        .filter((m) => m.dosesPerDay > 0)
-        .map((m) => ({
-          id: m.id,
-          forecast: calculateRefillForecast({
-            drugName: m.name,
-            pillsRemaining: m.pillsRemaining,
-            dosesPerDay: m.dosesPerDay,
-          }),
-        }))
-        .sort((a, b) => a.forecast.daysRemaining - b.forecast.daysRemaining),
-    [medications],
-  );
+  // Soonest to run out first; as-needed medications (no forecast) go last.
+  const rows: Row[] = useMemo(() => {
+    const built = medications.map((med) => ({
+      med,
+      forecast:
+        med.dosesPerDay === 0
+          ? null
+          : calculateRefillForecast({
+              drugName: med.name,
+              pillsRemaining: med.pillsRemaining,
+              dosesPerDay: med.dosesPerDay,
+            }),
+    }));
+    return built.sort((a, b) => {
+      if (a.forecast && b.forecast) return a.forecast.daysRemaining - b.forecast.daysRemaining;
+      if (a.forecast) return -1;
+      if (b.forecast) return 1;
+      return a.med.name.localeCompare(b.med.name);
+    });
+  }, [medications]);
 
   const adherence = useMemo(() => weeklyAdherence(medications, logs), [medications, logs]);
 
-  const needAttention = entries.filter((e) => e.forecast.status !== 'ok');
-  const next = entries[0]?.forecast ?? null;
-  const hasScheduled = entries.length > 0;
+  const soonest = rows.find((r) => r.forecast)?.forecast ?? null;
+  const dueSoon = rows.filter((r) => r.forecast && r.forecast.status !== 'ok').length;
+  const hasScheduled = rows.some((r) => r.forecast);
+
+  let headline: string;
+  let detail: string;
+  if (!soonest) {
+    headline = 'Nothing to forecast yet.';
+    detail = "As-needed medications don't have a refill date.";
+  } else if (soonest.status === 'ok') {
+    headline = 'Everything is on track.';
+    detail = `Next refill: ${soonest.drugName} in ${dayCount(soonest.daysRemaining)}, by ${soonest.refillByDate}.`;
+  } else {
+    headline =
+      soonest.daysRemaining === 0
+        ? `${soonest.drugName} needs a refill today.`
+        : `${soonest.drugName} runs out first.`;
+    detail = `${dayCount(soonest.daysRemaining)} left, refill by ${soonest.refillByDate}.`;
+  }
+
+  const summary = `${medications.length} ${
+    medications.length === 1 ? 'medication' : 'medications'
+  } tracked. ${dueSoon === 0 ? 'None' : dueSoon} due for a refill within a week.`;
 
   const loadSamples = async () => {
     if (seeding) return;
@@ -84,33 +103,25 @@ export default function DashboardHome() {
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="max-w-3xl mx-auto p-4 space-y-6">
-        <h1 className="text-xl font-bold text-gray-800">Dashboard</h1>
+      <div className="max-w-3xl mx-auto px-5 py-6 space-y-8">
+        <h1 className="font-display text-xl font-semibold text-ink-soft">Dashboard</h1>
 
         {!hasLoaded ? (
-          <div role="status" aria-label="Loading dashboard" className="space-y-3">
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <div className="h-16 rounded-lg bg-gray-200 animate-pulse" />
-              <div className="h-16 rounded-lg bg-gray-200 animate-pulse" />
-              <div className="h-16 rounded-lg bg-gray-200 animate-pulse" />
-              <div className="h-16 rounded-lg bg-gray-200 animate-pulse" />
-            </div>
-            <div className="h-28 rounded-lg bg-gray-200 animate-pulse" />
+          <div role="status" aria-label="Loading dashboard" className="space-y-4">
+            <div className="h-12 w-3/4 rounded-[3px] bg-rule motion-safe:animate-pulse" />
+            <div className="h-40 rounded-[3px] bg-rule motion-safe:animate-pulse" />
           </div>
         ) : medications.length === 0 ? (
-          <div className="text-center py-10 px-4 bg-white border border-dashed border-gray-300 rounded-lg">
-            <p className="text-2xl mb-2" aria-hidden="true">
-              💊
+          <section>
+            <p className="font-display text-4xl font-bold leading-tight">Nothing tracked yet.</p>
+            <p className="mt-2 text-ink-soft max-w-md">
+              Add a medication and its pill count to see when it needs a refill. Or load sample
+              data, with a week of dose history, to look around first.
             </p>
-            <h2 className="font-medium text-gray-800 mb-1">Welcome to Dose Forecast Tracker</h2>
-            <p className="text-sm text-gray-500 mb-5 max-w-md mx-auto">
-              Track how many pills you have left and see when each medication needs a refill. Add
-              your own, or load sample data (with a week of dose history) to look around first.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-2 justify-center">
+            <div className="mt-4 flex flex-wrap items-center gap-3">
               <Link
                 href="/medications"
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700"
+                className="bg-ink text-paper px-4 py-2 rounded-[3px] font-bold hover:bg-ink/90"
               >
                 Add a medication
               </Link>
@@ -118,150 +129,106 @@ export default function DashboardHome() {
                 type="button"
                 onClick={loadSamples}
                 disabled={seeding}
-                className="border border-gray-300 bg-white text-gray-800 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50 disabled:opacity-50"
+                className="border border-ink px-4 py-2 rounded-[3px] font-bold hover:bg-panel disabled:opacity-50"
               >
                 {seeding ? 'Loading…' : 'Load sample data'}
               </button>
             </div>
-          </div>
+          </section>
         ) : (
           <>
-            <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <Stat label="Medications tracked">{medications.length}</Stat>
-              <Stat label="Need a refill soon">{needAttention.length}</Stat>
-              <Stat label="Next refill">
-                {next ? (
-                  <>
-                    {next.drugName}
-                    <span className="block text-xs font-normal text-gray-500">
-                      {next.refillByDate}
-                    </span>
-                  </>
-                ) : (
-                  '—'
-                )}
-              </Stat>
-              <Stat label="7-day adherence">
-                {adherence.percent === null ? (
-                  <>
-                    —
-                    <span className="block text-xs font-normal text-gray-500">
-                      Not enough history yet
-                    </span>
-                  </>
-                ) : (
-                  `${adherence.percent}%`
-                )}
-              </Stat>
-            </dl>
+            <section aria-label="Summary">
+              <p className="font-display text-4xl font-bold leading-tight">{headline}</p>
+              <p className="mt-2">{detail}</p>
+              <p className="mt-1 text-ink-soft">{summary}</p>
+              <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2">
+                <Link
+                  href="/today"
+                  className="bg-ink text-paper px-4 py-2 rounded-[3px] font-bold hover:bg-ink/90"
+                >
+                  Log today's doses
+                </Link>
+                <Link href="/medications" className="underline underline-offset-4">
+                  Manage medications
+                </Link>
+                <Link href="/assistant" className="underline underline-offset-4">
+                  Ask the assistant
+                </Link>
+              </div>
+            </section>
 
-            <section aria-labelledby="attention-heading">
-              <h2 id="attention-heading" className="text-base font-semibold text-gray-800 mb-2">
-                Needs attention
+            <section aria-labelledby="supply-heading">
+              <h2 id="supply-heading" className="font-display text-2xl font-semibold mb-2">
+                Supply
               </h2>
-              {needAttention.length === 0 ? (
-                <p className="text-sm text-green-800 bg-green-50 border border-green-300 rounded-lg p-3">
-                  Everything is on track. No refills are needed in the next week.
-                </p>
-              ) : (
-                <ul>
-                  {needAttention.slice(0, 3).map(({ id, forecast }) => (
-                    <li key={id}>
-                      <RefillForecastCard result={forecast} />
-                    </li>
-                  ))}
-                </ul>
-              )}
+              <ul className="bg-panel border border-rule rounded-sm px-4 divide-y divide-dashed divide-rule">
+                {rows.map(({ med, forecast }) => (
+                  <li key={med.id} className="py-4">
+                    <div className="flex items-baseline justify-between gap-3">
+                      <h3 className="font-display text-2xl font-semibold leading-tight">
+                        {med.name}
+                      </h3>
+                      {forecast ? (
+                        <StatusWord status={forecast.status} />
+                      ) : (
+                        <span className="text-sm text-ink-soft">As needed</span>
+                      )}
+                    </div>
+                    {forecast && (
+                      <div className="my-2">
+                        <SupplyStrip daysLeft={forecast.daysRemaining} status={forecast.status} />
+                      </div>
+                    )}
+                    <p className="text-sm text-ink-soft">
+                      {forecast
+                        ? `${dayCount(forecast.daysRemaining)} left, refill by ${forecast.refillByDate}. ${pillCount(med.pillsRemaining)} at ${med.dosesPerDay} a day.`
+                        : `${pillCount(med.pillsRemaining)} left. No fixed schedule, so no refill date.`}
+                    </p>
+                  </li>
+                ))}
+              </ul>
             </section>
 
             {hasScheduled && (
-              <section aria-labelledby="supply-heading">
-                <h2 id="supply-heading" className="text-base font-semibold text-gray-800 mb-2">
-                  Days of supply left
-                </h2>
-                <ul className="space-y-3 bg-white border border-gray-200 rounded-lg p-4">
-                  {entries.map(({ id, forecast }) => (
-                    <li key={id}>
-                      <div className="flex justify-between text-sm text-gray-700 mb-1">
-                        <span>{forecast.drugName}</span>
-                        <span>
-                          {forecast.daysRemaining} {forecast.daysRemaining === 1 ? 'day' : 'days'}
-                        </span>
-                      </div>
-                      <div className="h-2 rounded-full bg-gray-200" aria-hidden="true">
-                        <div
-                          className={`h-2 rounded-full ${BAR_COLOR[forecast.status]}`}
-                          style={{
-                            width: `${Math.max(
-                              4,
-                              (Math.min(forecast.daysRemaining, MAX_BAR_DAYS) / MAX_BAR_DAYS) * 100,
-                            )}%`,
-                          }}
-                        />
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            )}
-
-            {hasScheduled && (
               <section aria-labelledby="adherence-heading">
-                <h2 id="adherence-heading" className="text-base font-semibold text-gray-800 mb-2">
-                  Adherence, last 7 days
+                <h2 id="adherence-heading" className="font-display text-2xl font-semibold mb-2">
+                  Adherence
                 </h2>
                 {adherence.percent === null ? (
-                  <p className="text-sm text-gray-600 bg-white border border-dashed border-gray-300 rounded-lg p-4">
+                  <p className="text-sm text-ink-soft max-w-md">
                     No history yet. Mark doses as taken on the{' '}
-                    <Link href="/today" className="text-blue-700 underline">
+                    <Link href="/today" className="underline underline-offset-4 text-ink">
                       Today page
                     </Link>{' '}
-                    and your adherence will show up here.
+                    and your week will fill in here.
                   </p>
                 ) : (
-                  <div className="bg-white border border-gray-200 rounded-lg p-4">
-                    <ul className="flex gap-2 h-40">
+                  <>
+                    <p className="mb-3">
+                      {adherence.percent}% of scheduled doses taken over the last 7 days.
+                    </p>
+                    <ol className="grid grid-cols-7 gap-1">
                       {adherence.days.map((day) => (
                         <li
                           key={day.date}
-                          className="flex-1 flex flex-col items-center h-full min-w-0"
+                          className={`rounded-[3px] border border-rule px-1 py-2 text-center ${adherenceTint(day.percent)}`}
                         >
-                          <span className="text-xs text-gray-700 h-4">
-                            {day.percent === null ? '–' : `${day.percent}%`}
-                          </span>
-                          <div className="flex-1 w-full flex items-end" aria-hidden="true">
-                            {day.percent !== null && (
-                              <div
-                                className={`w-full rounded-t ${adherenceColor(day.percent)}`}
-                                style={{ height: `${Math.max(day.percent, 4)}%` }}
-                              />
-                            )}
-                          </div>
-                          <span className="text-xs text-gray-500 h-4 mt-1">
+                          <span className="block text-xs text-ink-soft">
                             {weekdayFormatter.format(new Date(`${day.date}T12:00:00`))}
+                          </span>
+                          <span className="block font-display text-xl font-semibold">
+                            {day.percent === null ? '–' : `${day.percent}%`}
                           </span>
                         </li>
                       ))}
-                    </ul>
-                    <p className="text-xs text-gray-500 mt-3">
-                      Counts completed days only. Extra doses don't make up for missed ones.
+                    </ol>
+                    <p className="mt-2 text-xs text-ink-soft">
+                      Completed days only. Extra doses don't make up for missed ones.
                     </p>
-                  </div>
+                  </>
                 )}
               </section>
             )}
-
-            <div className="flex flex-wrap gap-3 text-sm">
-              <Link href="/today" className="text-blue-700 hover:underline">
-                Log today's doses →
-              </Link>
-              <Link href="/medications" className="text-blue-700 hover:underline">
-                Manage medications →
-              </Link>
-              <Link href="/assistant" className="text-blue-700 hover:underline">
-                Ask the assistant →
-              </Link>
-            </div>
           </>
         )}
       </div>
