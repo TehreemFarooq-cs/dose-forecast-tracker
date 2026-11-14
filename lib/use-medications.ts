@@ -41,5 +41,5 @@ export function useMedications() {
     [refresh],
   );
 
-  return { medications, hasLoaded, add, update, remove };
+  return { medications, hasLoaded, add, update, remove, refresh };
 }
