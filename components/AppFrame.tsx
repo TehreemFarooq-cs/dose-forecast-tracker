@@ -15,58 +15,60 @@ export default function AppFrame({ children }: { children: React.ReactNode }) {
   const isActive = (href: string) => (href === '/' ? pathname === '/' : pathname.startsWith(href));
 
   return (
-    <div className="h-dvh flex flex-col md:flex-row bg-gray-50">
+    <div className="h-dvh flex flex-col md:flex-row">
       <a
         href="#main"
-        className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:m-2 focus:rounded-lg focus:bg-white focus:px-3 focus:py-2 focus:text-sm focus:text-blue-700"
+        className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:m-2 focus:rounded-[3px] focus:bg-panel focus:px-3 focus:py-2 focus:text-sm focus:text-ink"
       >
         Skip to main content
       </a>
 
-      {/* Desktop sidebar */}
-      <aside className="hidden md:flex md:w-56 md:shrink-0 md:flex-col border-r bg-white">
-        <div className="p-4 border-b">
-          <p className="font-bold text-gray-800">💊 Dose Forecast Tracker</p>
+      {/* Desktop rail */}
+      <aside className="hidden md:flex md:w-56 md:shrink-0 md:flex-col border-r border-rule">
+        <div className="px-5 pt-6 pb-8">
+          <p className="font-display text-2xl font-bold leading-none">Dose Forecast</p>
         </div>
-        <nav aria-label="Main" className="p-2 space-y-1">
+        <nav aria-label="Main">
           {NAV.map(({ href, label }) => (
             <Link
               key={href}
               href={href}
               aria-current={isActive(href) ? 'page' : undefined}
-              className={`block rounded-lg px-3 py-2 text-sm font-medium ${
-                isActive(href) ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-100'
+              className={`block border-l-[3px] py-2 pl-4 pr-3 ${
+                isActive(href)
+                  ? 'border-ink font-bold text-ink'
+                  : 'border-transparent text-ink-soft hover:text-ink'
               }`}
             >
               {label}
             </Link>
           ))}
         </nav>
-        <p className="mt-auto p-4 text-xs text-gray-500">
+        <p className="mt-auto p-5 text-xs text-ink-soft">
           For tracking only. Not a substitute for medical advice.
         </p>
       </aside>
 
       {/* Mobile title bar */}
-      <div className="md:hidden border-b bg-white px-4 py-3">
-        <p className="font-bold text-gray-800">💊 Dose Forecast Tracker</p>
+      <div className="md:hidden border-b border-rule px-5 py-3">
+        <p className="font-display text-xl font-bold leading-none">Dose Forecast</p>
       </div>
 
       <main id="main" tabIndex={-1} className="flex-1 min-h-0 min-w-0 focus:outline-none">
         {children}
       </main>
 
-      {/* Mobile bottom tabs */}
-      <nav aria-label="Main" className="md:hidden flex border-t bg-white">
+      {/* Mobile tabs */}
+      <nav aria-label="Main" className="md:hidden grid grid-cols-4 border-t border-rule">
         {NAV.map(({ href, label }) => (
           <Link
             key={href}
             href={href}
             aria-current={isActive(href) ? 'page' : undefined}
-            className={`flex-1 border-t-2 py-3 text-center text-xs font-medium ${
+            className={`border-t-[3px] py-3 text-center text-sm ${
               isActive(href)
-                ? 'border-blue-600 text-blue-700'
-                : 'border-transparent text-gray-600'
+                ? 'border-ink font-bold text-ink'
+                : 'border-transparent text-ink-soft'
             }`}
           >
             {label}

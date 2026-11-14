@@ -1,2 +1,26 @@
 @import "tailwindcss";
 @source "../node_modules/streamdown/dist/index.js";
+
+@theme inline {
+  --color-paper: #f1f4f2;
+  --color-panel: #fcfdfc;
+  --color-ink: #1b2b4b;
+  --color-ink-soft: #5b6779;
+  --color-rule: #d3dad7;
+  --color-foil: #c3cbd2;
+  --color-ok: #1e7a4c;
+  --color-ok-tint: #e4f1e9;
+  --color-low: #8a4b00;
+  --color-low-fill: #e3a33b;
+  --color-low-tint: #faefd9;
+  --color-critical: #b3261e;
+  --color-critical-tint: #fae7e5;
+
+  --font-sans: var(--next-font-body), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--next-font-display), ui-sans-serif, system-ui, sans-serif;
+}
+
+:focus-visible {
+  outline: 2px solid #1b2b4b;
+  outline-offset: 2px;
+}
