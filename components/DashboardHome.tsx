@@ -4,8 +4,11 @@ import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import RefillForecastCard from './RefillForecastCard';
 import { useMedications } from '@/lib/use-medications';
+import { useDoseLog } from '@/lib/use-dose-log';
 import { calculateRefillForecast, type RefillForecast } from '@/lib/forecast';
-import { sampleMedications } from '@/lib/sample-data';
+import { weeklyAdherence } from '@/lib/adherence';
+import { buildSampleLogs, sampleCreatedAt, sampleMedications } from '@/lib/sample-data';
+import type { Medication } from '@/lib/medications';
 
 const BAR_COLOR = {
   ok: 'bg-green-500',
@@ -14,7 +17,15 @@ const BAR_COLOR = {
 } as const;
 const MAX_BAR_DAYS = 30;
 
+const weekdayFormatter = new Intl.DateTimeFormat(undefined, { weekday: 'short' });
+
 type Entry = { id: string; forecast: RefillForecast };
+
+function adherenceColor(percent: number) {
+  if (percent >= 80) return 'bg-green-500';
+  if (percent >= 50) return 'bg-yellow-500';
+  return 'bg-red-500';
+}
 
 function Stat({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -26,8 +37,13 @@ function Stat({ label, children }: { label: string; children: React.ReactNode })
 }
 
 export default function DashboardHome() {
-  const { medications, hasLoaded, add } = useMedications();
+  const { medications, hasLoaded: medsLoaded, add, refresh } = useMedications();
+  const { logs, hasLoaded: logsLoaded, importLogs } = useDoseLog(refresh);
   const [seeding, setSeeding] = useState(false);
+
+  // Anything date-dependent renders only after loading, so the server-rendered
+  // HTML and the first client render match.
+  const hasLoaded = medsLoaded && logsLoaded;
 
   const entries: Entry[] = useMemo(
     () =>
@@ -45,14 +61,22 @@ export default function DashboardHome() {
     [medications],
   );
 
+  const adherence = useMemo(() => weeklyAdherence(medications, logs), [medications, logs]);
+
   const needAttention = entries.filter((e) => e.forecast.status !== 'ok');
   const next = entries[0]?.forecast ?? null;
+  const hasScheduled = entries.length > 0;
 
   const loadSamples = async () => {
     if (seeding) return;
     setSeeding(true);
     try {
-      for (const sample of sampleMedications) await add(sample);
+      const createdAt = sampleCreatedAt();
+      const added: Medication[] = [];
+      for (const sample of sampleMedications) {
+        added.push(await add(sample, { createdAt }));
+      }
+      await importLogs(buildSampleLogs(added));
     } finally {
       setSeeding(false);
     }
@@ -65,7 +89,8 @@ export default function DashboardHome() {
 
         {!hasLoaded ? (
           <div role="status" aria-label="Loading dashboard" className="space-y-3">
-            <div className="grid gap-3 sm:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="h-16 rounded-lg bg-gray-200 animate-pulse" />
               <div className="h-16 rounded-lg bg-gray-200 animate-pulse" />
               <div className="h-16 rounded-lg bg-gray-200 animate-pulse" />
               <div className="h-16 rounded-lg bg-gray-200 animate-pulse" />
@@ -80,7 +105,7 @@ export default function DashboardHome() {
             <h2 className="font-medium text-gray-800 mb-1">Welcome to Dose Forecast Tracker</h2>
             <p className="text-sm text-gray-500 mb-5 max-w-md mx-auto">
               Track how many pills you have left and see when each medication needs a refill. Add
-              your own, or load sample data to look around first.
+              your own, or load sample data (with a week of dose history) to look around first.
             </p>
             <div className="flex flex-col sm:flex-row gap-2 justify-center">
               <Link
@@ -101,7 +126,7 @@ export default function DashboardHome() {
           </div>
         ) : (
           <>
-            <dl className="grid gap-3 sm:grid-cols-3">
+            <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <Stat label="Medications tracked">{medications.length}</Stat>
               <Stat label="Need a refill soon">{needAttention.length}</Stat>
               <Stat label="Next refill">
@@ -114,6 +139,18 @@ export default function DashboardHome() {
                   </>
                 ) : (
                   '—'
+                )}
+              </Stat>
+              <Stat label="7-day adherence">
+                {adherence.percent === null ? (
+                  <>
+                    —
+                    <span className="block text-xs font-normal text-gray-500">
+                      Not enough history yet
+                    </span>
+                  </>
+                ) : (
+                  `${adherence.percent}%`
                 )}
               </Stat>
             </dl>
@@ -137,7 +174,7 @@ export default function DashboardHome() {
               )}
             </section>
 
-            {entries.length > 0 && (
+            {hasScheduled && (
               <section aria-labelledby="supply-heading">
                 <h2 id="supply-heading" className="text-base font-semibold text-gray-800 mb-2">
                   Days of supply left
@@ -168,7 +205,56 @@ export default function DashboardHome() {
               </section>
             )}
 
+            {hasScheduled && (
+              <section aria-labelledby="adherence-heading">
+                <h2 id="adherence-heading" className="text-base font-semibold text-gray-800 mb-2">
+                  Adherence, last 7 days
+                </h2>
+                {adherence.percent === null ? (
+                  <p className="text-sm text-gray-600 bg-white border border-dashed border-gray-300 rounded-lg p-4">
+                    No history yet. Mark doses as taken on the{' '}
+                    <Link href="/today" className="text-blue-700 underline">
+                      Today page
+                    </Link>{' '}
+                    and your adherence will show up here.
+                  </p>
+                ) : (
+                  <div className="bg-white border border-gray-200 rounded-lg p-4">
+                    <ul className="flex gap-2 h-40">
+                      {adherence.days.map((day) => (
+                        <li
+                          key={day.date}
+                          className="flex-1 flex flex-col items-center h-full min-w-0"
+                        >
+                          <span className="text-xs text-gray-700 h-4">
+                            {day.percent === null ? '–' : `${day.percent}%`}
+                          </span>
+                          <div className="flex-1 w-full flex items-end" aria-hidden="true">
+                            {day.percent !== null && (
+                              <div
+                                className={`w-full rounded-t ${adherenceColor(day.percent)}`}
+                                style={{ height: `${Math.max(day.percent, 4)}%` }}
+                              />
+                            )}
+                          </div>
+                          <span className="text-xs text-gray-500 h-4 mt-1">
+                            {weekdayFormatter.format(new Date(`${day.date}T12:00:00`))}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="text-xs text-gray-500 mt-3">
+                      Counts completed days only. Extra doses don't make up for missed ones.
+                    </p>
+                  </div>
+                )}
+              </section>
+            )}
+
             <div className="flex flex-wrap gap-3 text-sm">
+              <Link href="/today" className="text-blue-700 hover:underline">
+                Log today's doses →
+              </Link>
               <Link href="/medications" className="text-blue-700 hover:underline">
                 Manage medications →
               </Link>
