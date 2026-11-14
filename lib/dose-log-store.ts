@@ -5,6 +5,8 @@ import { localDateKey, type DoseLog } from './dose-log';
 export interface DoseLogStore {
   list(): Promise<DoseLog[]>;
   add(medicationId: string, when?: Date): Promise<DoseLog>;
+  // Adds ready-made logs in one write (used for sample history).
+  addMany(logs: DoseLog[]): Promise<void>;
   // Removes the most recent log for this medication on the given day.
   // Returns the removed log, or null if there was nothing to remove.
   removeLatest(medicationId: string, dateKey: string): Promise<DoseLog | null>;
@@ -40,6 +42,10 @@ export const localDoseLogStore: DoseLogStore = {
     };
     write([...read(), log]);
     return log;
+  },
+
+  async addMany(logs) {
+    write([...read(), ...logs]);
   },
 
   async removeLatest(medicationId, dateKey) {

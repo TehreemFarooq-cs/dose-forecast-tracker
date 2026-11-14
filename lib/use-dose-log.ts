@@ -52,5 +52,14 @@ export function useDoseLog(onStockChanged: () => Promise<void> | void) {
     [refresh, onStockChanged],
   );
 
-  return { logs, hasLoaded, takeDose, undoDose };
+  // Adds ready-made logs (sample history) without touching stock.
+  const importLogs = useCallback(
+    async (newLogs: DoseLog[]) => {
+      await logStore.addMany(newLogs);
+      await refresh();
+    },
+    [refresh],
+  );
+
+  return { logs, hasLoaded, takeDose, undoDose, importLogs };
 }

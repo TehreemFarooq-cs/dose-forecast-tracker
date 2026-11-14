@@ -4,7 +4,7 @@ import { medicationInputSchema, type Medication, type MedicationInput } from './
 // same interface later without any caller changing.
 export interface MedicationStore {
   list(): Promise<Medication[]>;
-  add(input: MedicationInput): Promise<Medication>;
+  add(input: MedicationInput, options?: { createdAt?: string }): Promise<Medication>;
   update(id: string, patch: Partial<MedicationInput>): Promise<Medication | null>;
   remove(id: string): Promise<void>;
 }
@@ -30,12 +30,12 @@ export const localMedicationStore: MedicationStore = {
     return read();
   },
 
-  async add(input) {
+  async add(input, options) {
     const valid = medicationInputSchema.parse(input);
     const med: Medication = {
       ...valid,
       id: crypto.randomUUID(),
-      createdAt: new Date().toISOString(),
+      createdAt: options?.createdAt ?? new Date().toISOString(),
     };
     write([...read(), med]);
     return med;

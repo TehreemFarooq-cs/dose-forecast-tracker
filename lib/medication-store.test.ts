@@ -13,6 +13,15 @@ describe('localMedicationStore', () => {
     expect(all[0].id).toBe(med.id);
   });
 
+  it('uses a custom createdAt when given', async () => {
+    const createdAt = new Date(2026, 9, 1, 8).toISOString();
+    const med = await store.add(
+      { name: 'Drug A', pillsRemaining: 30, dosesPerDay: 2 },
+      { createdAt },
+    );
+    expect(med.createdAt).toBe(createdAt);
+  });
+
   it('updates stock and persists it', async () => {
     const med = await store.add({ name: 'Drug A', pillsRemaining: 30, dosesPerDay: 2 });
     await store.update(med.id, { pillsRemaining: 28 });

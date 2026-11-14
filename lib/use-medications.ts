@@ -16,8 +16,8 @@ export function useMedications() {
   }, [refresh]);
 
   const add = useCallback(
-    async (input: MedicationInput) => {
-      const med = await store.add(input);
+    async (input: MedicationInput, options?: { createdAt?: string }) => {
+      const med = await store.add(input, options);
       await refresh();
       return med;
     },
